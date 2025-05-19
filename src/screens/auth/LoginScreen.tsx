@@ -3,7 +3,6 @@ import React, {useState} from 'react';
 import {
   View,
   StyleSheet,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -21,7 +20,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [logoError, setLogoError] = useState(false);
   const {login} = useAuth();
 
   const handleLogin = async () => {
@@ -43,23 +41,6 @@ export default function LoginScreen() {
     }
   };
 
-  const renderLogo = () => {
-    if (logoError) {
-      // Render SVG logo as fallback
-      return <Logo width={100} height={100} style={styles.logo} />;
-    }
-
-    // Try to render the PNG logo with error handling
-    return (
-      <Image
-        source={require('../../assets/logo.png')}
-        style={styles.logo}
-        resizeMode="contain"
-        onError={() => setLogoError(true)}
-      />
-    );
-  };
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -68,7 +49,7 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled">
         <View style={styles.logoContainer}>
-          {renderLogo()}
+          <Logo width={100} height={100} style={styles.logo} />
           <Text style={styles.appName}>Kindergarten Status</Text>
           <Text style={styles.subtitle}>Login to access your account</Text>
         </View>

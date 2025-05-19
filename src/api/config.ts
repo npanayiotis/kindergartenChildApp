@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Configure the base URL to your deployed website on Render.com
-export const API_BASE_URL = 'http://findyournanny.onrender.com/api/mobile';
+export const API_BASE_URL = 'https://findyournanny.onrender.com/api/mobile';
 
 // Create a configured axios instance with proper timeout and headers
 export const apiClient = axios.create({

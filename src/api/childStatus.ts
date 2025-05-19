@@ -1,7 +1,5 @@
-// src/api/childStatus.ts
-import axios from 'axios';
-import { API_BASE_URL, ApiResponse } from './config';
-import { getAuthHeader } from './auth';
+import {apiClient, ApiResponse} from './config';
+import {getAuthHeader} from './auth';
 
 export interface ChildStatus {
   id: string;
@@ -26,28 +24,42 @@ export interface ChildStatusDetail extends ChildStatus {
   };
 }
 
-export async function getChildStatuses(token: string): Promise<ApiResponse<ChildStatus[]>> {
+export async function getChildStatuses(
+  token: string,
+): Promise<ApiResponse<ChildStatus[]>> {
   try {
     const headers = getAuthHeader(token);
-    const response = await axios.get(`${API_BASE_URL}/childStatus`, { headers });
-    return { data: response.data };
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response) {
-      return { error: error.response.data.error || 'Failed to fetch child statuses' };
+    const response = await apiClient.get('/childStatus', {headers});
+    return {data: response.data};
+  } catch (error: any) {
+    if (error.response) {
+      return {
+        error: error.response.data.error || 'Failed to fetch child statuses',
+      };
     }
-    return { error: 'Network error. Please check your connection.' };
+    return {
+      error: error.message || 'Network error. Please check your connection.',
+    };
   }
 }
 
-export async function getChildStatusDetails(token: string, id: string): Promise<ApiResponse<ChildStatusDetail>> {
+export async function getChildStatusDetails(
+  token: string,
+  id: string,
+): Promise<ApiResponse<ChildStatusDetail>> {
   try {
     const headers = getAuthHeader(token);
-    const response = await axios.get(`${API_BASE_URL}/childStatus/${id}`, { headers });
-    return { data: response.data };
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response) {
-      return { error: error.response.data.error || 'Failed to fetch child status details' };
+    const response = await apiClient.get(`/childStatus/${id}`, {headers});
+    return {data: response.data};
+  } catch (error: any) {
+    if (error.response) {
+      return {
+        error:
+          error.response.data.error || 'Failed to fetch child status details',
+      };
     }
-    return { error: 'Network error. Please check your connection.' };
+    return {
+      error: error.message || 'Network error. Please check your connection.',
+    };
   }
 }

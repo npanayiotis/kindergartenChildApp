@@ -8,14 +8,13 @@ import {
   Platform,
   ScrollView,
   Alert,
-  TouchableOpacity,
 } from 'react-native';
 import {TextInput, Button, Text, ActivityIndicator} from 'react-native-paper';
 import {useAuth} from '../../context/AuthContext';
 import {theme} from '../../theme';
 
-// Import the SVG Logo component as a fallback
-import Logo from '../../assets/Logo';
+// Import the Logo component
+import {Logo} from '../../assets';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');

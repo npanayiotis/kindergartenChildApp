@@ -1,25 +1,25 @@
 // src/screens/blog/BlogListScreen.tsx
-import React, {useState, useEffect, useCallback} from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  Alert,
-  Image,
-} from 'react-native';
+import React, {useState, useCallback} from 'react';
+import {View, StyleSheet, FlatList, RefreshControl, Alert} from 'react-native';
 import {
   Card,
   Title,
   Paragraph,
   ActivityIndicator,
   Text,
-  Button,
+  Divider,
 } from 'react-native-paper';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import {useAuth} from '../../context/AuthContext';
 import {getBlogPosts, BlogPost} from '../../api/blog';
 import {theme} from '../../theme';
+import {BlogStackParamList} from '../../types/navigation';
+
+type BlogScreenNavigationProp = StackNavigationProp<
+  BlogStackParamList,
+  'BlogList'
+>;
 
 export default function BlogListScreen() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -27,33 +27,40 @@ export default function BlogListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [totalPosts, setTotalPosts] = useState(0);
   const {token} = useAuth();
-  const navigation = useNavigation();
-  const pageSize = 10;
+  const navigation = useNavigation<BlogScreenNavigationProp>();
 
   const fetchPosts = useCallback(
-    async (pageNumber = 1, shouldRefresh = false) => {
-      if (!token) return;
+    async (pageNum = 1, refresh = false) => {
+      if (!token) {
+        return;
+      }
 
       try {
-        if (pageNumber === 1) {
+        if (pageNum === 1) {
           setLoading(true);
         }
 
-        const result = await getBlogPosts(token, pageNumber, pageSize);
+        const result = await getBlogPosts(token, pageNum);
 
         if (result.error) {
           Alert.alert('Error', result.error);
-        } else if (result.data) {
-          if (shouldRefresh || pageNumber === 1) {
-            setPosts(result.data.posts);
-          } else {
-            setPosts(prevPosts => [...prevPosts, ...result.data.posts]);
-          }
+          return;
+        }
 
-          setTotalPosts(result.data.total);
-          setHasMore(result.data.posts.length === pageSize);
+        if (result.data) {
+          const {posts: newPosts, total} = result.data;
+
+          if (refresh || pageNum === 1) {
+            setPosts(newPosts);
+            setHasMore(newPosts.length < total);
+          } else {
+            setPosts(prev => {
+              const updatedPosts = [...prev, ...newPosts];
+              setHasMore(updatedPosts.length < total);
+              return updatedPosts;
+            });
+          }
         }
       } catch (error) {
         Alert.alert('Error', 'Failed to fetch blog posts');
@@ -62,7 +69,7 @@ export default function BlogListScreen() {
         setRefreshing(false);
       }
     },
-    [token, pageSize],
+    [token],
   );
 
   useFocusEffect(
@@ -78,7 +85,7 @@ export default function BlogListScreen() {
   }, [fetchPosts]);
 
   const loadMore = () => {
-    if (hasMore && !loading) {
+    if (!loading && hasMore) {
       const nextPage = page + 1;
       setPage(nextPage);
       fetchPosts(nextPage);
@@ -86,15 +93,12 @@ export default function BlogListScreen() {
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
+    if (!dateString) {
+      return 'No date';
+    }
 
     const date = new Date(dateString);
     return date.toLocaleDateString();
-  };
-
-  const truncateText = (text: string, maxLength: number) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
   };
 
   const renderItem = ({item}: {item: BlogPost}) => (
@@ -102,61 +106,27 @@ export default function BlogListScreen() {
       style={styles.card}
       onPress={() =>
         navigation.navigate('BlogDetail', {
-          postId: item.id,
+          blogId: item.id,
           title: item.title,
         })
       }>
-      {item.imageUrl && (
-        <Card.Cover source={{uri: item.imageUrl}} style={styles.cardImage} />
-      )}
-      <Card.Content style={styles.cardContent}>
-        <Title style={styles.postTitle}>{item.title}</Title>
-        <Paragraph style={styles.dateText}>
-          {formatDate(item.publishedAt || item.createdAt)}
-          {item.author && ` • ${item.author}`}
+      <Card.Content>
+        <Title style={styles.title}>{item.title}</Title>
+        {item.author && (
+          <Paragraph style={styles.author}>By {item.author}</Paragraph>
+        )}
+        <Paragraph style={styles.date}>
+          Published: {formatDate(item.publishedAt || item.createdAt)}
         </Paragraph>
-
+        <Divider style={styles.divider} />
         {item.summary && (
-          <Paragraph style={styles.summary}>
-            {truncateText(item.summary, 150)}
+          <Paragraph numberOfLines={3} style={styles.summary}>
+            {item.summary}
           </Paragraph>
         )}
       </Card.Content>
-      <Card.Actions>
-        <Button
-          mode="text"
-          onPress={() =>
-            navigation.navigate('BlogDetail', {
-              postId: item.id,
-              title: item.title,
-            })
-          }>
-          Read More
-        </Button>
-      </Card.Actions>
     </Card>
   );
-
-  const renderFooter = () => {
-    if (!hasMore) {
-      return (
-        <Text style={styles.endListText}>
-          {posts.length > 0 ? 'No more posts to load' : ''}
-        </Text>
-      );
-    }
-
-    if (loading && page > 1) {
-      return (
-        <View style={styles.footerLoader}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text style={styles.loadingMoreText}>Loading more posts...</Text>
-        </View>
-      );
-    }
-
-    return null;
-  };
 
   if (loading && !refreshing && page === 1) {
     return (
@@ -181,14 +151,22 @@ export default function BlogListScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          hasMore && posts.length > 0 ? (
+            <ActivityIndicator
+              style={styles.loadMoreIndicator}
+              size="small"
+              color={theme.colors.primary}
+            />
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No blog posts found</Text>
           </View>
         }
-        ListFooterComponent={renderFooter}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
       />
     </View>
   );
@@ -211,32 +189,34 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: theme.spacing.m,
-    paddingBottom: theme.spacing.xl,
   },
   card: {
     marginBottom: theme.spacing.m,
     elevation: 2,
   },
-  cardImage: {
-    height: 180,
-  },
-  cardContent: {
-    paddingVertical: theme.spacing.m,
-  },
-  postTitle: {
+  title: {
     fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: theme.spacing.xs,
   },
-  dateText: {
-    color: theme.colors.textSecondary,
+  author: {
     fontSize: 14,
-    marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.s,
+    color: theme.colors.textSecondary,
+  },
+  date: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.xs,
+  },
+  divider: {
+    marginVertical: theme.spacing.s,
   },
   summary: {
-    color: theme.colors.text,
     fontSize: 14,
-    lineHeight: 20,
+    marginTop: theme.spacing.xs,
+  },
+  loadMoreIndicator: {
+    marginVertical: theme.spacing.m,
   },
   emptyContainer: {
     padding: theme.spacing.xl,
@@ -245,20 +225,5 @@ const styles = StyleSheet.create({
   emptyText: {
     color: theme.colors.textSecondary,
     fontSize: 16,
-  },
-  footerLoader: {
-    padding: theme.spacing.m,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  loadingMoreText: {
-    marginLeft: theme.spacing.s,
-    color: theme.colors.textSecondary,
-  },
-  endListText: {
-    textAlign: 'center',
-    padding: theme.spacing.m,
-    color: theme.colors.textSecondary,
   },
 });

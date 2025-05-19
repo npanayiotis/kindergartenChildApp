@@ -1,6 +1,6 @@
 // src/screens/blog/BlogDetailScreen.tsx
 import React, {useState, useEffect} from 'react';
-import {View, StyleSheet, ScrollView, Alert, Linking} from 'react-native';
+import {View, StyleSheet, ScrollView, Alert} from 'react-native';
 import {
   Card,
   Title,
@@ -19,8 +19,8 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type RouteParams = {
   BlogDetail: {
-    postId: string;
-    title: string;
+    blogId: string;
+    title?: string;
   };
 };
 
@@ -29,15 +29,17 @@ export default function BlogDetailScreen() {
   const [loading, setLoading] = useState(true);
   const {token} = useAuth();
   const route = useRoute<RouteProp<RouteParams, 'BlogDetail'>>();
-  const {postId} = route.params;
+  const {blogId} = route.params;
 
   useEffect(() => {
     const fetchPostDetails = async () => {
-      if (!token || !postId) return;
+      if (!token || !blogId) {
+        return;
+      }
 
       try {
         setLoading(true);
-        const result = await getBlogPostDetails(token, postId);
+        const result = await getBlogPostDetails(token, blogId);
 
         if (result.error) {
           Alert.alert('Error', result.error);
@@ -52,10 +54,12 @@ export default function BlogDetailScreen() {
     };
 
     fetchPostDetails();
-  }, [token, postId]);
+  }, [token, blogId]);
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'No date';
+    if (!dateString) {
+      return 'No date';
+    }
 
     const date = new Date(dateString);
     return date.toLocaleDateString();
@@ -75,7 +79,7 @@ export default function BlogDetailScreen() {
         // This is a bold text part
         const text = part.replace('<b>', '').replace('</b>', '');
         return (
-          <Text key={index} style={{fontWeight: 'bold'}}>
+          <Text key={index} style={styles.boldText}>
             {text}
           </Text>
         );
@@ -240,6 +244,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     marginBottom: theme.spacing.m,
+  },
+  boldText: {
+    fontWeight: 'bold',
   },
   actionsContainer: {
     flexDirection: 'row',

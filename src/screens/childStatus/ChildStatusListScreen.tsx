@@ -1,26 +1,43 @@
 // src/screens/childStatus/ChildStatusListScreen.tsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
-import { Card, Title, Paragraph, ActivityIndicator, Text, Avatar, Chip } from 'react-native-paper';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext';
-import { getChildStatuses, ChildStatus } from '../../api/childStatus';
-import { theme } from '../../theme';
+import React, {useState, useCallback} from 'react';
+import {View, StyleSheet, FlatList, RefreshControl, Alert} from 'react-native';
+import {
+  Card,
+  Title,
+  Paragraph,
+  ActivityIndicator,
+  Text,
+  Avatar,
+  Chip,
+} from 'react-native-paper';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {useAuth} from '../../context/AuthContext';
+import {getChildStatuses, ChildStatus} from '../../api/childStatus';
+import {theme} from '../../theme';
+import {ChildStatusStackParamList} from '../../types/navigation';
+
+type ChildStatusScreenNavigationProp = StackNavigationProp<
+  ChildStatusStackParamList,
+  'ChildStatusList'
+>;
 
 export default function ChildStatusListScreen() {
   const [statuses, setStatuses] = useState<ChildStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { token } = useAuth();
-  const navigation = useNavigation();
+  const {token} = useAuth();
+  const navigation = useNavigation<ChildStatusScreenNavigationProp>();
 
   const fetchStatuses = useCallback(async () => {
-    if (!token) return;
-    
+    if (!token) {
+      return;
+    }
+
     try {
       setLoading(true);
       const result = await getChildStatuses(token);
-      
+
       if (result.error) {
         Alert.alert('Error', result.error);
       } else if (result.data) {
@@ -37,7 +54,7 @@ export default function ChildStatusListScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchStatuses();
-    }, [fetchStatuses])
+    }, [fetchStatuses]),
   );
 
   const onRefresh = useCallback(() => {
@@ -46,44 +63,59 @@ export default function ChildStatusListScreen() {
   }, [fetchStatuses]);
 
   const renderMoodIcon = (mood?: string) => {
-    if (!mood) return null;
-    
+    if (!mood) {
+      return null;
+    }
+
     let iconName = 'emoticon-neutral';
     let color = '#FFC107';
-    
-    if (mood.toLowerCase().includes('happy') || mood.toLowerCase().includes('good')) {
+
+    if (
+      mood.toLowerCase().includes('happy') ||
+      mood.toLowerCase().includes('good')
+    ) {
       iconName = 'emoticon';
       color = '#4CAF50';
-    } else if (mood.toLowerCase().includes('sad') || mood.toLowerCase().includes('bad')) {
+    } else if (
+      mood.toLowerCase().includes('sad') ||
+      mood.toLowerCase().includes('bad')
+    ) {
       iconName = 'emoticon-sad';
       color = '#F44336';
     }
-    
+
     return (
       <Avatar.Icon
         size={40}
         icon={iconName}
-        style={{ backgroundColor: 'transparent' }}
+        style={styles.transparentBackground}
         color={color}
       />
     );
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'No date';
-    
+    if (!dateString) {
+      return 'No date';
+    }
+
     const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return (
+      date.toLocaleDateString() +
+      ' ' +
+      date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+    );
   };
 
-  const renderItem = ({ item }: { item: ChildStatus }) => (
+  const renderItem = ({item}: {item: ChildStatus}) => (
     <Card
       style={styles.card}
-      onPress={() => navigation.navigate('ChildStatusDetail', {
-        statusId: item.id,
-        childName: item.childName
-      })}
-    >
+      onPress={() =>
+        navigation.navigate('ChildStatusDetail', {
+          statusId: item.id,
+          childName: item.childName,
+        })
+      }>
       <Card.Content style={styles.cardContent}>
         {renderMoodIcon(item.mood)}
         <View style={styles.cardTextContent}>
@@ -91,7 +123,7 @@ export default function ChildStatusListScreen() {
           <Paragraph style={styles.statusText}>
             Last updated: {formatDate(item.updatedAt || item.createdAt)}
           </Paragraph>
-          
+
           {item.mood && (
             <Chip icon="emoticon" style={styles.chip}>
               {item.mood}
@@ -105,7 +137,11 @@ export default function ChildStatusListScreen() {
   if (loading && !refreshing) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator animating={true} size="large" color={theme.colors.primary} />
+        <ActivityIndicator
+          animating={true}
+          size="large"
+          color={theme.colors.primary}
+        />
         <Text style={styles.loadingText}>Loading child statuses...</Text>
       </View>
     );
@@ -116,7 +152,7 @@ export default function ChildStatusListScreen() {
       <FlatList
         data={statuses}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -180,5 +216,8 @@ const styles = StyleSheet.create({
   emptyText: {
     color: theme.colors.textSecondary,
     fontSize: 16,
+  },
+  transparentBackground: {
+    backgroundColor: 'transparent',
   },
 });

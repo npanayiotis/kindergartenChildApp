@@ -1,7 +1,7 @@
 // src/context/AuthContext.tsx
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, {createContext, useState, useEffect, useContext} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { login as apiLogin, logout as apiLogout, User } from '../api/auth';
+import {login as apiLogin, logout as apiLogout, User} from '../api/auth';
 
 const TOKEN_STORAGE_KEY = '@NannyApp:token';
 const USER_STORAGE_KEY = '@NannyApp:user';
@@ -16,7 +16,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
+  children,
+}) => {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,11 +29,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       try {
         const storedToken = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
         const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
-        
+
         if (storedToken) {
           setToken(storedToken);
         }
-        
+
         if (storedUser) {
           setUser(JSON.parse(storedUser));
         }
@@ -45,26 +47,32 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     loadToken();
   }, []);
 
-  const login = async (email: string, password: string): Promise<string | null> => {
+  const login = async (
+    email: string,
+    password: string,
+  ): Promise<string | null> => {
     try {
       const result = await apiLogin(email, password);
-      
+
       if (result.error) {
         return result.error;
       }
-      
+
       if (result.data) {
         // Save to state
         setToken(result.data.token);
         setUser(result.data.user);
-        
+
         // Save to storage
         await AsyncStorage.setItem(TOKEN_STORAGE_KEY, result.data.token);
-        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.data.user));
-        
+        await AsyncStorage.setItem(
+          USER_STORAGE_KEY,
+          JSON.stringify(result.data.user),
+        );
+
         return null;
       }
-      
+
       return 'An unknown error occurred';
     } catch (error) {
       console.error('Login error:', error);
@@ -77,11 +85,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       // Clear state
       setToken(null);
       setUser(null);
-      
+
       // Clear storage
       await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
       await AsyncStorage.removeItem(USER_STORAGE_KEY);
-      
+
       // Call API logout (optional if your backend requires it)
       await apiLogout();
     } catch (error) {
@@ -90,7 +98,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{token, user, isLoading, login, logout}}>
       {children}
     </AuthContext.Provider>
   );

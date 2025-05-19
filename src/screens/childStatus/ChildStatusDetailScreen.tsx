@@ -31,7 +31,9 @@ export default function ChildStatusDetailScreen() {
 
   useEffect(() => {
     const fetchStatusDetails = async () => {
-      if (!token || !statusId) return;
+      if (!token || !statusId) {
+        return;
+      }
 
       try {
         setLoading(true);
@@ -53,7 +55,9 @@ export default function ChildStatusDetailScreen() {
   }, [token, statusId]);
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'No date';
+    if (!dateString) {
+      return 'No date';
+    }
 
     const date = new Date(dateString);
     return (

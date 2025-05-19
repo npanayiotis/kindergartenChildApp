@@ -2,6 +2,10 @@
 // In a real application, you'd place image files here like logo.png, icons, etc.
 // The login screen references "../../assets/logo.png"
 
+import Logo from './Logo';
+
+export {Logo};
+
 export const ASSETS_INFO = {
   logo: 'logo.png',
   description: 'Kindergarten Status App Logo',

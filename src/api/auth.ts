@@ -19,14 +19,18 @@ export async function login(
   email: string,
   password: string,
 ): Promise<ApiResponse<AuthResponse>> {
+  console.log(`Attempting login to: ${API_BASE_URL}/auth/login`);
   try {
     const response = await axios.post(`${API_BASE_URL}/auth/login`, {
       email,
       password,
     });
+    console.log('Login successful');
     return {data: response.data};
   } catch (error) {
+    console.log(`Login error details: ${JSON.stringify(error)}`);
     if (axios.isAxiosError(error) && error.response) {
+      console.log(`Server response: ${JSON.stringify(error.response.data)}`);
       return {error: error.response.data.error || 'Login failed'};
     }
     return {error: 'Network error. Please check your connection.'};

@@ -50,7 +50,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled">
         <View style={styles.logoContainer}>
           <Logo width={100} height={100} style={styles.logo} />
-          <Text style={styles.appName}>Kindergarten Status</Text>
+          <Text style={styles.appName}>Cyprus Kindergartens</Text>
           <Text style={styles.subtitle}>Login to access your account</Text>
         </View>
 

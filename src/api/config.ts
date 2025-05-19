@@ -1,44 +1,41 @@
-import axios from 'axios';
+import {initializeApp} from 'firebase/app';
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
+import {getAuth} from 'firebase/auth';
+import {getStorage} from 'firebase/storage';
 
-// Configure the base URL to your deployed website on Render.com
-export const API_BASE_URL = 'https://findyournanny.onrender.com/api/mobile';
+// Firebase configuration from your web app
+const firebaseConfig = {
+  apiKey: 'AIzaSyD8hXVobTNfvodNicXI259FQ0sO1bQnICI',
+  authDomain: 'kindergartencyprus.firebaseapp.com',
+  projectId: 'kindergartencyprus',
+  storageBucket: 'kindergartencyprus.firebasestorage.app',
+  messagingSenderId: '43663453268',
+  appId: '1:43663453268:web:35748d7194e33743d1a7e9',
+  measurementId: 'G-TQVBQSZD9',
+};
 
-// Create a configured axios instance with proper timeout and headers
-export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000, // 30 seconds timeout
-  headers: {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  },
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// Initialize Firestore with settings optimized for mobile
+initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
 });
 
-// Add response interceptor for better error handling
-apiClient.interceptors.response.use(
-  response => response,
-  error => {
-    // Log the error for debugging
-    console.error('API Error:', error);
+// Get Firestore instance
+const db = getFirestore(app);
 
-    if (error.code === 'ECONNABORTED') {
-      console.log('Request timeout');
-    }
+// Initialize Firebase Authentication
+const auth = getAuth(app);
 
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.log('Error response data:', error.response.data);
-      console.log('Error response status:', error.response.status);
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.log('No response received:', error.request);
-    }
+// Initialize Firebase Storage
+const storage = getStorage(app);
 
-    return Promise.reject(error);
-  },
-);
-
-export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-}
+export {app, db, auth, storage};

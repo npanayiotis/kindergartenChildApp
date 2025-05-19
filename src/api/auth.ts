@@ -24,7 +24,7 @@ export async function login(
   console.log(`Attempting login to: ${API_BASE_URL}/auth/login`);
 
   // For testing only - check if we should use mock authentication
-  const useMockAuth = false; // Set to false to use actual API
+  const useMockAuth = false; // Set to true to use mock authentication
 
   if (useMockAuth) {
     console.log('Using mock authentication for testing');

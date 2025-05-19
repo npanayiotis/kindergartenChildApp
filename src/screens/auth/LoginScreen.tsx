@@ -1,5 +1,5 @@
 // src/screens/auth/LoginScreen.tsx
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   StyleSheet,
@@ -10,16 +10,20 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { TextInput, Button, Text, ActivityIndicator } from 'react-native-paper';
-import { useAuth } from '../../context/AuthContext';
-import { theme } from '../../theme';
+import {TextInput, Button, Text, ActivityIndicator} from 'react-native-paper';
+import {useAuth} from '../../context/AuthContext';
+import {theme} from '../../theme';
+
+// Import the SVG Logo component as a fallback
+import Logo from '../../assets/Logo';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const { login } = useAuth();
+  const [logoError, setLogoError] = useState(false);
+  const {login} = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -40,22 +44,33 @@ export default function LoginScreen() {
     }
   };
 
+  const renderLogo = () => {
+    if (logoError) {
+      // Render SVG logo as fallback
+      return <Logo width={100} height={100} style={styles.logo} />;
+    }
+
+    // Try to render the PNG logo with error handling
+    return (
+      <Image
+        source={require('../../assets/logo.png')}
+        style={styles.logo}
+        resizeMode="contain"
+        onError={() => setLogoError(true)}
+      />
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+      style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-      >
+        keyboardShouldPersistTaps="handled">
         <View style={styles.logoContainer}>
-          <Image
-            source={require('../../assets/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.appName}>Find Your Nanny</Text>
+          {renderLogo()}
+          <Text style={styles.appName}>Kindergarten Status</Text>
           <Text style={styles.subtitle}>Login to access your account</Text>
         </View>
 
@@ -81,7 +96,7 @@ export default function LoginScreen() {
             left={<TextInput.Icon icon="lock" />}
             right={
               <TextInput.Icon
-                icon={passwordVisible ? "eye-off" : "eye"}
+                icon={passwordVisible ? 'eye-off' : 'eye'}
                 onPress={() => setPasswordVisible(!passwordVisible)}
               />
             }
@@ -92,9 +107,8 @@ export default function LoginScreen() {
             onPress={handleLogin}
             style={styles.loginButton}
             labelStyle={styles.buttonLabel}
-            disabled={loading}
-          >
-            {loading ? <ActivityIndicator color="#fff" /> : "Login"}
+            disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : 'Login'}
           </Button>
         </View>
       </ScrollView>

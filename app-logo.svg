@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background Circle -->
+  <circle cx="50" cy="50" r="45" fill="#3B82F6" />
+  
+  <!-- Roof -->
+  <polygon points="25,45 50,25 75,45" fill="#FFFFFF" />
+  
+  <!-- House -->
+  <rect x="30" y="45" width="40" height="30" fill="#FFFFFF" />
+  
+  <!-- Door -->
+  <rect x="45" y="55" width="10" height="20" fill="#10B981" />
+  
+  <!-- Child Silhouette -->
+  <circle cx="50" cy="40" r="5" fill="#10B981" />
+  <path d="M45,50 C45,40 55,40 55,50" fill="#10B981" />
+</svg>

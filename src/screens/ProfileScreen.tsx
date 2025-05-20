@@ -13,7 +13,7 @@ import {useAuth} from '../context/AuthContext';
 import {User} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
-import {Ionicons} from '@expo/vector-icons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import {DefaultAvatar} from '../assets';
 
 type ProfileScreenProps = {

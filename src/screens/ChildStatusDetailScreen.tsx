@@ -14,7 +14,7 @@ import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList, ChildStatus} from '../types';
 import apiService from '../api/apiService';
 import {useAuth} from '../context/AuthContext';
-import {Ionicons} from '@expo/vector-icons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 type ChildStatusDetailsScreenProps = {
   route: RouteProp<RootStackParamList, 'ChildStatusDetails'>;

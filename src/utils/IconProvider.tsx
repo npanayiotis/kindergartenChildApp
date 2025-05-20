@@ -7,7 +7,8 @@
 
 import React from 'react';
 import {Text} from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+// Use direct import from react-native-vector-icons instead of @expo/vector-icons
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // Define emoji map for fallbacks
 const EMOJI_MAP: {[key: string]: string} = {

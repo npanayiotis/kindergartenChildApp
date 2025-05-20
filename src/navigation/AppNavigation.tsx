@@ -2,7 +2,9 @@ import React from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {Ionicons} from '@expo/vector-icons';
+
+// Import our centralized icon provider
+import {TabBarIcon} from '../utils/IconProvider';
 
 // Import screens
 import LoginScreen from '../screens/LoginScreen';
@@ -72,7 +74,7 @@ const MainTabs: React.FC = () => {
             iconName = focused ? 'person' : 'person-outline';
           }
 
-          return <Ionicons name={iconName as any} size={size} color={color} />;
+          return <TabBarIcon name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#4a80f5',
         tabBarInactiveTintColor: 'gray',

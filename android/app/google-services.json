@@ -1,0 +1,28 @@
+{
+  "project_info": {
+    "project_number": "43663453268",
+    "project_id": "kindergartencyprus",
+    "storage_bucket": "kindergartencyprus.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:43663453268:android:35748d7194e33743d1a7e9",
+        "android_client_info": {
+          "package_name": "com.kindergartenchildstatusapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8hXVobTNfvodNicXI259FQ0sO1bQnICI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ]
+}

@@ -6,15 +6,18 @@
  * are loaded to ensure the auth component is registered properly.
  */
 
-// Initialize Firebase first, before anything else
-console.log('[APP] Starting Firebase initialization...');
-require('./firebase');
-console.log('[APP] Firebase initialization complete');
-
-// Then import other modules
 import {AppRegistry} from 'react-native';
 import App from './App';
 import {name as appName} from './app.json';
+
+// Initialize Firebase first
+console.log('[APP] Starting Firebase initialization...');
+try {
+  require('./firebaseRN');
+  console.log('[APP] Firebase initialization complete');
+} catch (error) {
+  console.error('[APP] Firebase initialization failed:', error);
+}
 
 // Register the app component
 console.log('[APP] Registering app component');

@@ -10,6 +10,15 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../api/apiService';
 import {User, AuthContextType} from '../types';
+import {auth as firebaseAuth, usingMockImplementation} from '../../firebaseRN';
+
+// Define Firebase user type for TypeScript
+interface FirebaseUser {
+  uid: string;
+  email: string | null;
+  displayName?: string | null;
+  role?: string;
+}
 
 // Create auth context with proper typing
 const AuthContext = createContext<AuthContextType>({
@@ -37,13 +46,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
     const loadUserFromStorage = async (): Promise<void> => {
       try {
         const userDataJson = await AsyncStorage.getItem('user_data');
-        const token = await AsyncStorage.getItem('user_token');
+        const token = await AsyncStorage.getItem('auth_token');
 
         if (userDataJson && token) {
+          console.log('[AUTH] Loaded user from storage');
           setUser(JSON.parse(userDataJson));
+        } else if (firebaseAuth.currentUser) {
+          // We have a current user from Firebase auth, let's use that
+          console.log('[AUTH] Using current Firebase user');
+          const fbUser = firebaseAuth.currentUser as FirebaseUser;
+
+          // Convert to our User type
+          const userData: User = {
+            id: fbUser.uid,
+            email: fbUser.email || '',
+            name: fbUser.displayName || 'User',
+            role:
+              (fbUser.role as 'parent' | 'kindergarten' | 'admin') || 'parent',
+          };
+
+          setUser(userData);
+
+          // Store for later use
+          await AsyncStorage.setItem('user_data', JSON.stringify(userData));
         }
       } catch (error) {
-        console.error('Failed to load user data', error);
+        console.error('[AUTH] Failed to load user data', error);
       } finally {
         setLoading(false);
       }
@@ -58,9 +86,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
       setLoading(true);
       setError(null);
 
+      console.log(
+        `[AUTH] Attempting login for ${email} (using ${
+          usingMockImplementation ? 'mock' : 'real'
+        } implementation)`,
+      );
+
+      // Use the proper login method
       const data = await apiService.auth.login(email, password);
+
+      console.log('[AUTH] Login successful:', data.user);
       setUser(data.user);
+
+      // Store user data
+      await AsyncStorage.setItem('user_data', JSON.stringify(data.user));
+      await AsyncStorage.setItem('auth_token', data.token);
     } catch (error) {
+      console.error('[AUTH] Login error:', error);
       setError(error instanceof Error ? error : new Error(String(error)));
       throw error;
     } finally {
@@ -72,10 +114,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
   const logout = async (): Promise<void> => {
     try {
       setLoading(true);
+      console.log('[AUTH] Logging out');
+
       await apiService.auth.logout();
       setUser(null);
+
+      // Clear user data from storage
+      await AsyncStorage.removeItem('user_data');
+      await AsyncStorage.removeItem('auth_token');
     } catch (error) {
-      console.error('Logout error', error);
+      console.error('[AUTH] Logout error', error);
     } finally {
       setLoading(false);
     }

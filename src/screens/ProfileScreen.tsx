@@ -14,6 +14,7 @@ import {User} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
 import {Ionicons} from '@expo/vector-icons';
+import {DefaultAvatar} from '../assets';
 
 type ProfileScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Profile'>;
@@ -64,23 +65,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.profileHeader}>
-          <Image
-            source={
-              user.profileImage
-                ? {uri: user.profileImage}
-                : require('../assets/default-avatar.png')
-            }
-            style={styles.profileImage}
-          />
+          {user.profileImage ? (
+            <Image
+              source={{uri: user.profileImage}}
+              style={styles.profileImage}
+            />
+          ) : (
+            <DefaultAvatar
+              width={100}
+              height={100}
+              style={styles.profileImage}
+            />
+          )}
           <Text style={styles.userName}>{user.name}</Text>
           <Text style={styles.userEmail}>{user.email}</Text>
           <View style={styles.roleContainer}>
             <Text style={styles.roleText}>
-              {isParent
-                ? 'Parent'
-                : isKindergarten
-                ? 'Kindergarten'
-                : 'User'}
+              {isParent ? 'Parent' : isKindergarten ? 'Kindergarten' : 'User'}
             </Text>
           </View>
         </View>
@@ -256,4 +257,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProfileScreen; 
+export default ProfileScreen;

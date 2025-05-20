@@ -1,8 +1,8 @@
-// User Types
+// User type
 export interface User {
   id: string;
-  name: string;
   email: string;
+  name: string;
   role: 'parent' | 'kindergarten' | 'admin';
   profileImage?: string;
 }
@@ -18,30 +18,30 @@ export interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-// Child Status Types
+// Child Status type
 export interface ChildStatus {
   id: string;
   childName: string;
-  mood?: string;
-  meal?: string;
-  nap?: boolean;
-  notes?: string;
+  mood: string;
+  meal: string;
+  nap: boolean;
+  notes: string;
   createdAt: string;
   updatedAt: string;
-  kindergartenId?: string;
-  parentId?: string;
+  parentId: string;
+  kindergartenId: string;
 }
 
-// Blog Post Types
+// Blog Post type
 export interface BlogPost {
   id: string;
   title: string;
   content: string;
-  image?: string;
   createdAt: string;
   updatedAt: string;
   kindergartenId: string;
-  kindergartenName?: string;
+  kindergartenName: string;
+  image?: string;
 }
 
 // Navigation Types
@@ -63,3 +63,6 @@ export interface ApiResponse<T> {
   message?: string;
   status: number;
 }
+
+// Re-export Firebase types
+export * from './firebase';

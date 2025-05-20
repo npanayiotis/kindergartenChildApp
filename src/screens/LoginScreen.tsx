@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
@@ -14,6 +13,7 @@ import {
 import {useAuth} from '../context/AuthContext';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
+import {Logo} from '../assets';
 
 type LoginScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Login'>;
@@ -46,11 +46,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation: _navigation}) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}>
       <View style={styles.logoContainer}>
-        <Image
-          source={require('../assets/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <Logo width={120} height={120} style={styles.logo} />
         <Text style={styles.title}>Cyprus Kindergarten Finder</Text>
       </View>
 

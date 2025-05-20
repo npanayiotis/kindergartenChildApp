@@ -11,7 +11,10 @@ import {
 } from 'react-native';
 import {useAuth} from '../context/AuthContext';
 import apiService from '../api/apiService';
-import {Ionicons} from '@expo/vector-icons';
+
+// Import our centralized icon component
+import {Ionicon as Icon} from '../utils/IconProvider';
+
 import {ChildStatus} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
@@ -24,7 +27,7 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
   const [childStatuses, setChildStatuses] = useState<ChildStatus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const {user, isParent, isKindergarten} = useAuth();
+  const {isParent} = useAuth();
 
   // Function to format date string
   const formatDate = (dateStr?: string): string => {
@@ -78,17 +81,17 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
 
         <View style={styles.statusRow}>
           <View style={styles.statusItem}>
-            <Ionicons name="happy-outline" size={24} color="#4a80f5" />
+            <Icon name="happy-outline" size={24} color="#4a80f5" />
             <Text style={styles.statusText}>{item.mood || 'N/A'}</Text>
           </View>
 
           <View style={styles.statusItem}>
-            <Ionicons name="restaurant-outline" size={24} color="#4a80f5" />
+            <Icon name="restaurant-outline" size={24} color="#4a80f5" />
             <Text style={styles.statusText}>{item.meal || 'N/A'}</Text>
           </View>
 
           <View style={styles.statusItem}>
-            <Ionicons name="bed-outline" size={24} color="#4a80f5" />
+            <Icon name="bed-outline" size={24} color="#4a80f5" />
             <Text style={styles.statusText}>
               {item.nap ? 'Napped' : 'No nap'}
             </Text>
@@ -119,7 +122,7 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
         </View>
       ) : childStatuses.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="information-circle-outline" size={50} color="#ccc" />
+          <Icon name="information-circle-outline" size={50} color="#ccc" />
           <Text style={styles.emptyText}>
             No child status updates available
           </Text>
@@ -234,4 +237,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ChildStatusScreen; 
+export default ChildStatusScreen;

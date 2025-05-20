@@ -7,6 +7,7 @@
 
 import React from 'react';
 import {Text} from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 // Define emoji map for fallbacks
 const EMOJI_MAP: {[key: string]: string} = {
@@ -53,14 +54,13 @@ export const Ionicon = ({
   size,
   color,
 }: {
-  name: any;
+  name: any; // Using 'any' to bypass type checking for now
   size: number;
   color: string;
 }) => {
   try {
-    // Try to load the real Ionicons
-    const IoniconsModule = require('@expo/vector-icons/Ionicons');
-    return <IoniconsModule name={name} size={size} color={color} />;
+    // Directly use the imported Ionicons component
+    return <Ionicons name={name} size={size} color={color} />;
   } catch (error) {
     // Return text-based fallback if icons fail to load
     return (
@@ -77,14 +77,13 @@ export const TabBarIcon = ({
   size,
   color,
 }: {
-  name: any;
+  name: any; // Using 'any' to bypass type checking for now
   size: number;
   color: string;
 }) => {
   try {
-    // Try to use Ionicons from react-native-vector-icons
-    const IconComponent = require('react-native-vector-icons/Ionicons').default;
-    return <IconComponent name={name} size={size} color={color} />;
+    // Use the imported Ionicons
+    return <Ionicons name={name} size={size} color={color} />;
   } catch (error) {
     // Fallback
     return (

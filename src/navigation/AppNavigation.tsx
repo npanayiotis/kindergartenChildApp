@@ -2,6 +2,7 @@ import React from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {TouchableOpacity, Text, StyleSheet} from 'react-native';
 
 // Import our centralized icon provider
 import {TabBarIcon} from '../utils/IconProvider';
@@ -56,8 +57,12 @@ const BlogStack: React.FC = () => (
   </Stack.Navigator>
 );
 
+interface MainTabsProps {
+  debugHandler: () => void;
+}
+
 // Main Tab Navigator - After user is logged in
-const MainTabs: React.FC = () => {
+const MainTabs: React.FC<MainTabsProps> = ({debugHandler}) => {
   const {isParent} = useAuth();
 
   return (
@@ -108,13 +113,18 @@ const MainTabs: React.FC = () => {
         options={{
           title: 'Profile',
         }}
+        initialParams={{debugHandler}}
       />
     </Tab.Navigator>
   );
 };
 
+interface AppNavigationProps {
+  debugHandler: () => void;
+}
+
 // Main App Navigator
-const AppNavigation: React.FC = () => {
+const AppNavigation: React.FC<AppNavigationProps> = ({debugHandler}) => {
   const {isAuthenticated, loading} = useAuth();
 
   if (loading) {
@@ -123,7 +133,11 @@ const AppNavigation: React.FC = () => {
 
   return (
     <NavigationContainer>
-      {isAuthenticated ? <MainTabs /> : <AuthStack />}
+      {isAuthenticated ? (
+        <MainTabs debugHandler={debugHandler} />
+      ) : (
+        <AuthStack />
+      )}
     </NavigationContainer>
   );
 };

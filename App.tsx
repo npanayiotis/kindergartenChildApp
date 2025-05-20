@@ -42,12 +42,7 @@ function App(): React.JSX.Element {
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <AuthProvider>
-        <AppNavigation />
-        <TouchableOpacity
-          style={styles.debugButton}
-          onPress={() => setShowDebug(true)}>
-          <Text style={styles.debugButtonText}>Debug</Text>
-        </TouchableOpacity>
+        <AppNavigation debugHandler={() => setShowDebug(true)} />
       </AuthProvider>
     </SafeAreaProvider>
   );
@@ -56,19 +51,6 @@ function App(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  debugButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  debugButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
   },
   debugHeader: {
     height: 60,

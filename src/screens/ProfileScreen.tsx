@@ -10,19 +10,21 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {useAuth} from '../context/AuthContext';
-import {User} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
+import {RouteProp} from '@react-navigation/native';
 import {RootStackParamList} from '../types';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {DefaultAvatar} from '../assets';
 
 type ProfileScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Profile'>;
+  route: RouteProp<RootStackParamList, 'Profile'>;
 };
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({route}) => {
   const {user, logout, isParent, isKindergarten} = useAuth();
   const [loading, setLoading] = useState<boolean>(false);
+  const {debugHandler} = route.params || {};
 
   // Handle logout
   const handleLogout = async (): Promise<void> => {
@@ -90,19 +92,40 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Account</Text>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            Alert.alert(
+              'Coming Soon',
+              'Edit Profile feature will be available soon.',
+            )
+          }>
           <Ionicons name="person-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Edit Profile</Text>
           <Ionicons name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            Alert.alert(
+              'Coming Soon',
+              'Change Password feature will be available soon.',
+            )
+          }>
           <Ionicons name="lock-closed-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Change Password</Text>
           <Ionicons name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            Alert.alert(
+              'Coming Soon',
+              'Notifications feature will be available soon.',
+            )
+          }>
           <Ionicons name="notifications-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Notifications</Text>
           <Ionicons name="chevron-forward" size={22} color="#ccc" />
@@ -112,23 +135,53 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Support</Text>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            Alert.alert(
+              'Help & FAQ',
+              'For help and support, please contact us at support@kindergartencyprus.com',
+            )
+          }>
           <Ionicons name="help-circle-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Help & FAQ</Text>
           <Ionicons name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            Alert.alert(
+              'Contact Us',
+              'Email: support@kindergartencyprus.com\nPhone: +357 99 123456',
+            )
+          }>
           <Ionicons name="mail-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Contact Us</Text>
           <Ionicons name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            Alert.alert(
+              'Privacy Policy',
+              'Our privacy policy information will be available soon.',
+            )
+          }>
           <Ionicons name="document-text-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Privacy Policy</Text>
           <Ionicons name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
+
+        {/* Debug option for developers */}
+        {debugHandler && (
+          <TouchableOpacity style={styles.menuItem} onPress={debugHandler}>
+            <Ionicons name="code-outline" size={22} color="#4a80f5" />
+            <Text style={styles.menuItemText}>Debug Options</Text>
+            <Ionicons name="chevron-forward" size={22} color="#ccc" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <TouchableOpacity

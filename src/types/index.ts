@@ -51,7 +51,9 @@ export type RootStackParamList = {
   ChildStatusDetails: {childId: string};
   BlogList: undefined;
   BlogPostDetails: {postId: string};
-  Profile: undefined;
+  Profile: {
+    debugHandler?: () => void;
+  };
   // Tab navigation types
   Status: undefined;
   Blog: undefined;

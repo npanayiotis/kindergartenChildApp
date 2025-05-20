@@ -18,6 +18,7 @@ import {Ionicon as Icon} from '../utils/IconProvider';
 import {ChildStatus} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
+import {firestore} from '../../firebaseRN';
 
 type ChildStatusScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'ChildStatus'>;
@@ -27,7 +28,7 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
   const [childStatuses, setChildStatuses] = useState<ChildStatus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const {isParent} = useAuth();
+  const {user, isParent, isKindergarten} = useAuth();
 
   // Function to format date string
   const formatDate = (dateStr?: string): string => {
@@ -44,11 +45,51 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
   const loadChildStatuses = async (): Promise<void> => {
     try {
       setLoading(true);
-      const data = await apiService.childStatus.getAll();
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      let data: ChildStatus[] = [];
+
+      // Handle different roles differently
+      if (isParent) {
+        // Parents can only see their own children
+        data = await apiService.childStatus.getAll();
+      } else if (isKindergarten) {
+        // This is a kindergarten/admin - query differently to get children in this kindergarten
+        const childStatusSnapshot = await firestore
+          .collection('childStatus')
+          .where('kindergartenId', '==', user.id)
+          .get();
+
+        if (!childStatusSnapshot.empty) {
+          data = childStatusSnapshot.docs.map(doc => {
+            const docData = doc.data();
+            return {
+              id: doc.id,
+              childName: docData?.childName || '',
+              createdAt:
+                docData?.createdAt?.toDate?.()?.toISOString() ||
+                new Date().toISOString(),
+              updatedAt:
+                docData?.updatedAt?.toDate?.()?.toISOString() ||
+                new Date().toISOString(),
+              mood: docData?.mood || '',
+              meal: docData?.meal || '',
+              nap: !!docData?.nap,
+              notes: docData?.notes || '',
+              parentId: docData?.parentId || '',
+              kindergartenId: docData?.kindergartenId || '',
+            };
+          });
+        }
+      }
+
       setChildStatuses(data);
     } catch (error) {
+      console.error('Error loading child statuses:', error);
       Alert.alert('Error', 'Failed to load child statuses');
-      console.error(error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -57,7 +98,8 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
 
   useEffect(() => {
     loadChildStatuses();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isParent, isKindergarten]);
 
   const onRefresh = (): void => {
     setRefreshing(true);
@@ -125,6 +167,11 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
           <Icon name="information-circle-outline" size={50} color="#ccc" />
           <Text style={styles.emptyText}>
             No child status updates available
+          </Text>
+          <Text style={styles.emptySubText}>
+            {isParent
+              ? "Your child's status updates will appear here."
+              : 'Status updates for children in your kindergarten will appear here.'}
           </Text>
         </View>
       ) : (
@@ -206,31 +253,40 @@ const styles = StyleSheet.create({
   statusText: {
     marginTop: 4,
     fontSize: 14,
-    color: '#555',
+    color: '#666',
+    textAlign: 'center',
   },
   notesContainer: {
-    marginTop: 8,
-    padding: 10,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
+    marginTop: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
   notesLabel: {
+    fontSize: 14,
     fontWeight: '600',
+    color: '#333',
     marginBottom: 4,
-    color: '#444',
   },
   notes: {
     fontSize: 14,
-    color: '#555',
+    color: '#666',
+    lineHeight: 20,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 40,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  emptySubText: {
+    fontSize: 14,
     color: '#888',
     textAlign: 'center',
     marginTop: 10,

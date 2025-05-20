@@ -5,10 +5,9 @@
  * to ensure Firebase is initialized before any React components are loaded.
  */
 
-// Polyfill global for React Native if needed
-if (typeof global === 'undefined') {
-  global = window;
-}
+// Global is already defined in React Native, this is just a safety check
+// We don't need to polyfill in a React Native environment
+// We'll skip this block as it's causing syntax issues
 
 // Setup Firebase
 import {initializeApp} from 'firebase/app';
@@ -29,6 +28,7 @@ import {
   where,
 } from 'firebase/firestore';
 import {getStorage} from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Create mock functions for error cases
 const createMockAuth = () => {
@@ -93,7 +93,7 @@ try {
   app = initializeApp(firebaseConfig);
   console.log('[FIREBASE] App initialized');
 
-  // Initialize auth
+  // Initialize auth - using standard getAuth instead of initializeAuth
   console.log('[FIREBASE] Initializing auth');
   auth = getAuth(app);
   console.log('[FIREBASE] Auth initialized:', auth ? 'SUCCESS' : 'FAILED');

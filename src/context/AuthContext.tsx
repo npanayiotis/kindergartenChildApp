@@ -1,144 +1,118 @@
-// src/context/AuthContext.tsx
-import React, {createContext, useState, useEffect, useContext} from 'react';
+// Auth Context for React Native mobile app
+
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  ReactNode,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {login as apiLogin, logout as apiLogout, User} from '../api/authService';
-import {auth} from '../api/config';
+import apiService from '../api/apiService';
+import {User, AuthContextType} from '../types';
 
-const TOKEN_STORAGE_KEY = '@NannyApp:token';
-const USER_STORAGE_KEY = '@NannyApp:user';
+// Create auth context with proper typing
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isAuthenticated: false,
+  isParent: false,
+  isKindergarten: false,
+  loading: true,
+  login: async () => {},
+  logout: async () => {},
+});
 
-interface AuthContextType {
-  token: string | null;
-  user: User | null;
-  isLoading: boolean;
-  firebaseReady: boolean;
-  login: (email: string, password: string) => Promise<string | null>;
-  logout: () => Promise<void>;
+interface AuthProviderProps {
+  children: ReactNode;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
-  children,
-}) => {
-  const [token, setToken] = useState<string | null>(null);
+// Auth provider component
+export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [firebaseReady, setFirebaseReady] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [_error, setError] = useState<Error | null>(null);
 
-  // Check if Firebase is initialized
+  // Check for existing user session on app start
   useEffect(() => {
-    try {
-      // Simple check to see if auth has been initialized
-      if (auth) {
-        console.log('Firebase Auth is available');
-        setFirebaseReady(true);
-      } else {
-        console.error('Firebase Auth is not available');
-      }
-    } catch (error) {
-      console.error('Error checking Firebase Auth:', error);
-    }
-  }, []);
-
-  // Load token from storage on startup
-  useEffect(() => {
-    const loadToken = async () => {
+    const loadUserFromStorage = async (): Promise<void> => {
       try {
-        const storedToken = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
-        const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
+        const userDataJson = await AsyncStorage.getItem('user_data');
+        const token = await AsyncStorage.getItem('user_token');
 
-        if (storedToken) {
-          setToken(storedToken);
-        }
-
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
+        if (userDataJson && token) {
+          setUser(JSON.parse(userDataJson));
         }
       } catch (error) {
-        console.error('Failed to load auth state:', error);
+        console.error('Failed to load user data', error);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    loadToken();
+    loadUserFromStorage();
   }, []);
 
-  const login = async (
-    email: string,
-    password: string,
-  ): Promise<string | null> => {
-    if (!firebaseReady) {
-      return 'Firebase Authentication is not initialized yet. Please restart the app.';
-    }
-
+  // Login function
+  const login = async (email: string, password: string): Promise<void> => {
     try {
-      const result = await apiLogin(email, password);
+      setLoading(true);
+      setError(null);
 
-      if (result.error) {
-        return result.error;
-      }
-
-      if (result.data) {
-        // Save to state
-        setToken(result.data.token);
-        setUser(result.data.user);
-
-        // Save to storage
-        await AsyncStorage.setItem(TOKEN_STORAGE_KEY, result.data.token);
-        await AsyncStorage.setItem(
-          USER_STORAGE_KEY,
-          JSON.stringify(result.data.user),
-        );
-
-        return null;
-      }
-
-      return 'An unknown error occurred';
+      const data = await apiService.auth.login(email, password);
+      setUser(data.user);
     } catch (error) {
-      console.error('Login error:', error);
-      return 'Network error. Please check your connection.';
+      setError(error instanceof Error ? error : new Error(String(error)));
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Logout function
   const logout = async (): Promise<void> => {
-    if (!firebaseReady) {
-      console.warn(
-        'Firebase Authentication is not initialized, but proceeding with local logout',
-      );
-    }
-
     try {
-      // Clear state
-      setToken(null);
+      setLoading(true);
+      await apiService.auth.logout();
       setUser(null);
-
-      // Clear storage
-      await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
-      await AsyncStorage.removeItem(USER_STORAGE_KEY);
-
-      // Call API logout (optional if your backend requires it)
-      if (firebaseReady) {
-        await apiLogout();
-      }
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout error', error);
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Check if user is authenticated
+  const isAuthenticated = !!user;
+
+  // Check if user is parent
+  const isParent = user?.role === 'parent';
+
+  // Check if user is kindergarten
+  const isKindergarten = user?.role === 'kindergarten';
 
   return (
     <AuthContext.Provider
-      value={{token, user, isLoading, firebaseReady, login, logout}}>
+      value={{
+        user,
+        loading,
+        login,
+        logout,
+        isAuthenticated,
+        isParent,
+        isKindergarten,
+      }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
+// Custom hook to use auth context
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+
   return context;
 };

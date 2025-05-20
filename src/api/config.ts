@@ -1,41 +1,65 @@
-import {initializeApp} from 'firebase/app';
-import {
-  getFirestore,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-} from 'firebase/firestore';
-import {getAuth} from 'firebase/auth';
-import {getStorage} from 'firebase/storage';
+/**
+ * API Configuration
+ *
+ * This file uses Firebase instances from global scope.
+ * These globals are set in the firebase.js file that's imported in index.js
+ * before any other imports.
+ */
 
-// Firebase configuration from your web app
-const firebaseConfig = {
-  apiKey: 'AIzaSyD8hXVobTNfvodNicXI259FQ0sO1bQnICI',
-  authDomain: 'kindergartencyprus.firebaseapp.com',
-  projectId: 'kindergartencyprus',
-  storageBucket: 'kindergartencyprus.firebasestorage.app',
-  messagingSenderId: '43663453268',
-  appId: '1:43663453268:web:35748d7194e33743d1a7e9',
-  measurementId: 'G-TQVBQSZD9',
-};
+import axios from 'axios';
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Use the globally initialized Firebase components
+// This prevents circular dependencies and timing issues
+declare global {
+  var firebaseApp: any;
+  var firebaseAuth: any;
+  var firebaseDB: any;
+  var firebaseStorage: any;
+}
 
-// Initialize Firestore with settings optimized for mobile
-initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-  }),
+// Get Firebase components from global scope
+const app = global.firebaseApp;
+const auth = global.firebaseAuth;
+const db = global.firebaseDB;
+const storage = global.firebaseStorage;
+
+// Create API client configuration
+const API_BASE_URL = 'https://findyournanny.onrender.com/api/mobile';
+
+// Create axios client for API calls
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
 });
 
-// Get Firestore instance
-const db = getFirestore(app);
+// Add request interceptor to log API calls for debugging
+apiClient.interceptors.request.use(
+  config => {
+    console.log(`[API] Request to ${config.url}`);
+    return config;
+  },
+  error => {
+    console.error('[API] Request error:', error);
+    return Promise.reject(error);
+  },
+);
 
-// Initialize Firebase Authentication
-const auth = getAuth(app);
+// Add response interceptor for better error handling
+apiClient.interceptors.response.use(
+  response => {
+    console.log(
+      `[API] Response from ${response.config.url} - Status: ${response.status}`,
+    );
+    return response;
+  },
+  error => {
+    console.error('[API] Response error:', error);
+    return Promise.reject(error);
+  },
+);
 
-// Initialize Firebase Storage
-const storage = getStorage(app);
-
-export {app, db, auth, storage};
+export {app, auth, db, storage, API_BASE_URL};

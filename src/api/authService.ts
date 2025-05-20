@@ -1,23 +1,10 @@
+import {auth as firebaseAuth, db, apiClient} from './config';
 import {
-  login as firebaseLogin,
-  register as firebaseRegister,
-  logout as firebaseLogout,
-  AuthResult,
-} from './auth';
-import axios from 'axios';
-
-// API base URL
-const API_BASE_URL = 'https://findyournanny.onrender.com/api/mobile';
-
-// Axios instance for API calls
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  },
-});
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+import {doc, getDoc, setDoc} from 'firebase/firestore';
 
 export interface User {
   id: string;
@@ -37,29 +24,91 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+// Helper to check if Firebase Auth is available
+function isFirebaseAuthAvailable() {
+  return (
+    firebaseAuth &&
+    typeof firebaseAuth.signInWithEmailAndPassword === 'function'
+  );
+}
+
 // Login using Firebase first, then authenticate with the API
 export async function login(
   email: string,
   password: string,
 ): Promise<ApiResponse<AuthResponse>> {
   try {
-    // First, try Firebase Auth
-    const firebaseResult = await firebaseLogin(email, password);
+    console.log('[AUTH] Login attempt for:', email);
 
-    if (firebaseResult.error) {
-      console.log('Firebase login failed, trying API login');
+    // First check if Firebase is properly initialized
+    if (!isFirebaseAuthAvailable()) {
+      console.error('[AUTH] Firebase Auth is not properly initialized!');
+      return {
+        error:
+          'Firebase authentication is not available. Please restart the app.',
+      };
+    }
+
+    // Try Firebase Auth
+    try {
+      console.log('[AUTH] Attempting Firebase login...');
+
+      const userCredential = await signInWithEmailAndPassword(
+        firebaseAuth,
+        email,
+        password,
+      );
+
+      console.log('[AUTH] Firebase login successful, fetching user data...');
+
+      // Get additional user data from Firestore
+      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+      let userData: any = {};
+
+      if (userDoc.exists()) {
+        userData = userDoc.data();
+        console.log('[AUTH] User data retrieved from Firestore');
+      } else {
+        console.log('[AUTH] No user data found in Firestore');
+      }
+
+      const user = {
+        id: userCredential.user.uid,
+        email: userCredential.user.email || '',
+        firstName: userData.firstName || '',
+        lastName: userData.lastName || '',
+        userType: userData.userType || 'user',
+      };
+
+      console.log('[AUTH] Firebase login complete for user:', user.id);
+
+      // Return the Firebase user in the expected format
+      return {
+        data: {
+          token: await userCredential.user.getIdToken(),
+          user,
+        },
+      };
+    } catch (firebaseError: any) {
+      console.log(
+        '[AUTH] Firebase login failed:',
+        firebaseError.message,
+        'Trying API login...',
+      );
 
       // If Firebase fails, try the API login
       try {
+        console.log('[AUTH] Attempting API login...');
+
         const response = await apiClient.post('/auth/login', {
           email,
           password,
         });
 
-        console.log('API Login successful');
+        console.log('[AUTH] API Login successful');
         return {data: response.data};
       } catch (error: any) {
-        console.log('API login error:', error);
+        console.log('[AUTH] API login error:', error);
 
         // Enhanced error handling for API errors
         if (error.response) {
@@ -77,32 +126,8 @@ export async function login(
         }
       }
     }
-
-    // Firebase login was successful, convert to expected format
-    const user = firebaseResult.user;
-
-    // Now authenticate with the API using Firebase credentials
-    try {
-      // You might need to get a Firebase ID token to send to your API
-      // For now, let's just return the Firebase user in the expected format
-      return {
-        data: {
-          token: 'firebase-auth', // Placeholder, replace with actual token if needed
-          user: {
-            id: user.id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            userType: user.userType,
-          },
-        },
-      };
-    } catch (error: any) {
-      console.log('Error authenticating with API after Firebase login:', error);
-      return {error: 'Error connecting to the server after login.'};
-    }
   } catch (error: any) {
-    console.log('Unhandled login error:', error);
+    console.error('[AUTH] Unhandled login error:', error);
     return {error: 'An unexpected error occurred during login.'};
   }
 }
@@ -115,34 +140,62 @@ export async function register(
   lastName: string,
 ): Promise<ApiResponse<AuthResponse>> {
   try {
-    // First, register with Firebase
-    const firebaseResult = await firebaseRegister(
-      email,
-      password,
-      firstName,
-      lastName,
-    );
+    console.log('[AUTH] Registration attempt for:', email);
 
-    if (firebaseResult.error) {
-      return {error: firebaseResult.error};
+    // First check if Firebase is properly initialized
+    if (!isFirebaseAuthAvailable()) {
+      console.error('[AUTH] Firebase Auth is not properly initialized!');
+      return {
+        error:
+          'Firebase authentication is not available. Please restart the app.',
+      };
     }
 
-    // Firebase registration successful, now register with the API
-    // This depends on your API's registration endpoint
-    return {
-      data: {
-        token: 'firebase-auth', // Placeholder
-        user: {
-          id: firebaseResult.user.id,
-          email: firebaseResult.user.email,
-          firstName: firebaseResult.user.firstName,
-          lastName: firebaseResult.user.lastName,
-          userType: firebaseResult.user.userType,
+    // Register with Firebase
+    try {
+      console.log('[AUTH] Attempting Firebase registration...');
+
+      const userCredential = await createUserWithEmailAndPassword(
+        firebaseAuth,
+        email,
+        password,
+      );
+
+      console.log('[AUTH] Firebase account created, saving user data...');
+
+      // Save additional user data to Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        email,
+        firstName,
+        lastName,
+        userType: 'parent',
+        createdAt: new Date(),
+      });
+
+      console.log('[AUTH] Firebase registration successful');
+
+      // Return in standard format
+      return {
+        data: {
+          token: await userCredential.user.getIdToken(),
+          user: {
+            id: userCredential.user.uid,
+            email: email,
+            firstName: firstName,
+            lastName: lastName,
+            userType: 'parent',
+          },
         },
-      },
-    };
+      };
+    } catch (firebaseError: any) {
+      console.error(
+        '[AUTH] Firebase registration failed:',
+        firebaseError.message,
+      );
+      return {error: firebaseError.message};
+    }
   } catch (error: any) {
-    console.log('Registration error:', error);
+    console.error('[AUTH] Registration error:', error);
     return {error: 'An error occurred during registration.'};
   }
 }
@@ -150,11 +203,22 @@ export async function register(
 // Logout from both Firebase and the API
 export async function logout(): Promise<ApiResponse<void>> {
   try {
-    await firebaseLogout();
+    console.log('[AUTH] Logout attempt');
+
+    // First check if Firebase is properly initialized
+    if (!isFirebaseAuthAvailable()) {
+      console.warn(
+        '[AUTH] Firebase Auth is not properly initialized, proceeding with local logout',
+      );
+      return {data: undefined};
+    }
+
+    await signOut(firebaseAuth);
+    console.log('[AUTH] Logout successful');
     // Also logout from API if needed
-    // await apiClient.post('/auth/logout');
     return {data: undefined};
   } catch (error: any) {
+    console.error('[AUTH] Logout error:', error);
     return {error: 'Error logging out.'};
   }
 }

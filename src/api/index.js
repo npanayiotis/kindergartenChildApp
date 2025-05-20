@@ -9,11 +9,11 @@ export {
   login,
   register,
   logout,
-  resetPassword,
-  subscribeToAuthChanges,
-  getCurrentUser,
-  AuthResult,
-} from './auth';
+  getAuthHeader,
+  User,
+  AuthResponse,
+  ApiResponse,
+} from './authService';
 
 // Blog post functions
 export {getBlogPosts, getBlogPostById, getRecentBlogPosts} from './blog';

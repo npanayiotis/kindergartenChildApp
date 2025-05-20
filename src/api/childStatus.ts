@@ -3,7 +3,6 @@ import {
   query,
   where,
   orderBy,
-  limit,
   getDocs,
   getDoc,
   doc,
@@ -13,8 +12,46 @@ import {
 } from 'firebase/firestore';
 import {auth, db} from './config';
 
+// Define interfaces for child status data types
+export interface Child {
+  id: string;
+  name: string;
+  birthDate?: Date | null;
+  allergies?: string[];
+  specialNeeds?: string;
+  [key: string]: any;
+}
+
+export interface ChildStatus {
+  id: string;
+  childId: string;
+  childName?: string;
+  mood?: string;
+  health?: string;
+  activities?: string[];
+  mealStatus?: string;
+  notes?: string;
+  kindergartenId?: string;
+  createdBy?: string;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  updatedBy?: string;
+  child?: Child;
+  [key: string]: any;
+}
+
+export interface ChildStatusUpdate {
+  childId: string;
+  mood?: string;
+  health?: string;
+  activities?: string[];
+  mealStatus?: string;
+  notes?: string;
+  [key: string]: any;
+}
+
 // Get child statuses based on user type
-export async function getChildStatuses() {
+export async function getChildStatuses(): Promise<ChildStatus[]> {
   try {
     // Get current user
     const user = auth.currentUser;
@@ -31,7 +68,7 @@ export async function getChildStatuses() {
     }
 
     const userData = userDoc.data();
-    let childStatusDocs = [];
+    let childStatusDocs: ChildStatus[] = [];
 
     // Different query based on user type
     if (userData.userType === 'parent') {
@@ -112,7 +149,7 @@ export async function getChildStatuses() {
 }
 
 // Get a single child status by ID
-export async function getChildStatusById(id) {
+export async function getChildStatusById(id: string): Promise<ChildStatus> {
   try {
     const statusRef = doc(db, 'childStatuses', id);
     const statusDoc = await getDoc(statusRef);
@@ -127,7 +164,7 @@ export async function getChildStatusById(id) {
     const childRef = doc(db, 'children', statusData.childId);
     const childDoc = await getDoc(childRef);
 
-    let child = {id: statusData.childId, name: 'Unknown Child'};
+    let child: Child = {id: statusData.childId, name: 'Unknown Child'};
 
     if (childDoc.exists()) {
       const childData = childDoc.data();
@@ -146,7 +183,7 @@ export async function getChildStatusById(id) {
       createdAt: statusData.createdAt?.toDate?.() || null,
       updatedAt: statusData.updatedAt?.toDate?.() || null,
       child,
-    };
+    } as ChildStatus;
   } catch (error) {
     console.error('Error getting child status:', error);
     throw error;
@@ -154,7 +191,9 @@ export async function getChildStatusById(id) {
 }
 
 // Create a new child status
-export async function createChildStatus(statusData) {
+export async function createChildStatus(
+  statusData: ChildStatusUpdate,
+): Promise<ChildStatus> {
   try {
     // Get current user
     const user = auth.currentUser;
@@ -192,7 +231,9 @@ export async function createChildStatus(statusData) {
     return {
       id: docRef.id,
       ...newStatus,
-    };
+      createdAt: new Date(), // Use current date since serverTimestamp() is not a Date object
+      updatedAt: new Date(),
+    } as ChildStatus;
   } catch (error) {
     console.error('Error creating child status:', error);
     throw error;
@@ -200,7 +241,10 @@ export async function createChildStatus(statusData) {
 }
 
 // Update an existing child status
-export async function updateChildStatus(id, statusData) {
+export async function updateChildStatus(
+  id: string,
+  statusData: ChildStatusUpdate,
+): Promise<ChildStatus> {
   try {
     // Get current user
     const user = auth.currentUser;
@@ -250,7 +294,9 @@ export async function updateChildStatus(id, statusData) {
       id,
       ...currentStatus,
       ...updateData,
-    };
+      createdAt: currentStatus.createdAt?.toDate?.() || null,
+      updatedAt: new Date(), // Use current date for the response
+    } as ChildStatus;
   } catch (error) {
     console.error('Error updating child status:', error);
     throw error;

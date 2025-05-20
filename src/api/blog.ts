@@ -8,12 +8,46 @@ import {
   getDoc,
   doc,
   startAfter,
-  Timestamp,
+  DocumentSnapshot,
+  QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import {db} from './config';
 
+// Define interfaces for blog data types
+export interface BlogPost {
+  id: string;
+  title?: string;
+  content?: string;
+  kindergartenId?: string;
+  published?: boolean;
+  createdAt: Date | null;
+  publishedAt: Date | null;
+  author?: string;
+  imageUrl?: string;
+  kindergarten?: {
+    id: string;
+    name: string;
+  } | null;
+  [key: string]: any; // For other properties that might be present
+}
+
+interface BlogPostsOptions {
+  kindergartenId?: string | null;
+  pageSize?: number;
+  lastVisible?: DocumentSnapshot | null;
+  onlyPublished?: boolean;
+}
+
+interface BlogPostsResult {
+  posts: BlogPost[];
+  lastVisible: QueryDocumentSnapshot | null;
+  hasMore: boolean;
+}
+
 // Get blog posts with pagination
-export async function getBlogPosts(options = {}) {
+export async function getBlogPosts(
+  options: BlogPostsOptions = {},
+): Promise<BlogPostsResult> {
   try {
     const {
       kindergartenId = null,
@@ -51,11 +85,11 @@ export async function getBlogPosts(options = {}) {
     const snapshot = await getDocs(blogQuery);
 
     // Process results
-    const posts = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
+    const posts: BlogPost[] = [];
+    snapshot.forEach((docSnapshot: QueryDocumentSnapshot) => {
+      const data = docSnapshot.data();
       posts.push({
-        id: doc.id,
+        id: docSnapshot.id,
         ...data,
         createdAt: data.createdAt?.toDate?.() || null,
         publishedAt: data.publishedAt?.toDate?.() || null,
@@ -63,7 +97,7 @@ export async function getBlogPosts(options = {}) {
     });
 
     // Get the last visible document for pagination
-    const lastVisibleDoc = snapshot.docs[snapshot.docs.length - 1];
+    const lastVisibleDoc = snapshot.docs[snapshot.docs.length - 1] || null;
 
     return {
       posts,
@@ -77,7 +111,7 @@ export async function getBlogPosts(options = {}) {
 }
 
 // Get a single blog post by ID
-export async function getBlogPostById(id) {
+export async function getBlogPostById(id: string): Promise<BlogPost> {
   try {
     const docRef = doc(db, 'blogPosts', id);
     const docSnap = await getDoc(docRef);
@@ -117,7 +151,9 @@ export async function getBlogPostById(id) {
 }
 
 // Get recent blog posts
-export async function getRecentBlogPosts(count = 5) {
+export async function getRecentBlogPosts(
+  count: number = 5,
+): Promise<BlogPost[]> {
   try {
     const blogQuery = query(
       collection(db, 'blogPosts'),
@@ -128,11 +164,11 @@ export async function getRecentBlogPosts(count = 5) {
 
     const snapshot = await getDocs(blogQuery);
 
-    const posts = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
+    const posts: BlogPost[] = [];
+    snapshot.forEach((docSnapshot: QueryDocumentSnapshot) => {
+      const data = docSnapshot.data();
       posts.push({
-        id: doc.id,
+        id: docSnapshot.id,
         ...data,
         createdAt: data.createdAt?.toDate?.() || null,
         publishedAt: data.publishedAt?.toDate?.() || null,

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!-- Base configuration allowing system certificates -->
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
@@ -9,18 +9,17 @@
     
     <!-- API and localhost domains -->
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">findyournanny.onrender.com</domain>
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">findyournanny.onrender.com</domain>
     </domain-config>
     
-    <!-- Firebase domains - CHANGED TO ALLOW CLEARTEXT -->
-    <domain-config cleartextTrafficPermitted="true">
+    <!-- Firebase domains -->
+    <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">firebaseio.com</domain>
         <domain includeSubdomains="true">googleapis.com</domain>
         <domain includeSubdomains="true">firebase.com</domain>
         <domain includeSubdomains="true">firebaseapp.com</domain>
-        <domain includeSubdomains="true">firebasestorage.app</domain>
         <domain includeSubdomains="true">google.com</domain>
         <domain includeSubdomains="true">firebase-settings.crashlytics.com</domain>
         <domain includeSubdomains="true">firebaseinstallations.googleapis.com</domain>

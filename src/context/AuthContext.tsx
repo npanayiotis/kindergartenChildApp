@@ -6,6 +6,7 @@ import React, {
   useContext,
   useEffect,
   ReactNode,
+  useRef,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../api/apiService';
@@ -40,6 +41,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [_error, setError] = useState<Error | null>(null);
+  const userRef = useRef<User | null>(null);
+
+  // Keep userRef in sync with user state for use in interval
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Check for existing user session on app start
   useEffect(() => {
@@ -69,16 +76,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
 
           // Store for later use
           await AsyncStorage.setItem('user_data', JSON.stringify(userData));
+          // Generate a token and store it
+          const newToken = 'firebase-token-' + Date.now();
+          await AsyncStorage.setItem('auth_token', newToken);
         }
       } catch (error) {
         console.error('[AUTH] Failed to load user data', error);
+        // Clear any corrupted or invalid data
+        await AsyncStorage.removeItem('user_data');
+        await AsyncStorage.removeItem('auth_token');
       } finally {
         setLoading(false);
       }
     };
 
     loadUserFromStorage();
-  }, []);
+
+    // Check auth status every 30 seconds as a fallback, but use ref instead of state
+    // This avoids infinite re-renders
+    const intervalId = setInterval(() => {
+      if (!firebaseAuth.currentUser && userRef.current !== null) {
+        console.log('[AUTH] User signed out detected by interval check');
+        setUser(null);
+        // Clear stored data
+        AsyncStorage.removeItem('user_data').catch(err =>
+          console.error('[AUTH] Error removing user data:', err),
+        );
+        AsyncStorage.removeItem('auth_token').catch(err =>
+          console.error('[AUTH] Error removing token:', err),
+        );
+      }
+    }, 30000);
+
+    // Cleanup the interval
+    return () => clearInterval(intervalId);
+  }, []); // Remove user from dependencies
 
   // Login function
   const login = async (email: string, password: string): Promise<void> => {
@@ -122,6 +154,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
       // Then perform the actual logout operation
       try {
         await apiService.auth.logout();
+        console.log('[AUTH] Firebase logout completed');
       } catch (error) {
         console.error('[AUTH] Error during Firebase logout:', error);
         // Continue with cleanup even if Firebase logout fails
@@ -131,6 +164,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
       try {
         await AsyncStorage.removeItem('user_data');
         await AsyncStorage.removeItem('auth_token');
+        console.log('[AUTH] Local storage cleared');
       } catch (storageError) {
         console.error('[AUTH] Error clearing storage:', storageError);
       }
@@ -138,8 +172,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
       console.log('[AUTH] Logout completed successfully');
     } catch (error) {
       console.error('[AUTH] Logout error', error);
-      // Don't rethrow - we want the logout to "succeed" even if there are errors
-      // This ensures the user is logged out of the app
+      // Rethrow to allow the UI to handle the error
+      throw error;
     } finally {
       setLoading(false);
     }

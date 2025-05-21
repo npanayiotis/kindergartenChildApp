@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -15,29 +15,36 @@ import {RouteProp} from '@react-navigation/native';
 import {RootStackParamList} from '../types';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {DefaultAvatar} from '../assets';
+import {CommonActions} from '@react-navigation/native';
 
 type ProfileScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Profile'>;
   route: RouteProp<RootStackParamList, 'Profile'>;
 };
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({route}) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation, route}) => {
   const {user, logout, isParent, isKindergarten} = useAuth();
   const [loading, setLoading] = useState<boolean>(false);
   const {debugHandler} = route.params || {};
 
-  // Handle logout
-  const handleLogout = async (): Promise<void> => {
+  // Handle logout with useCallback to avoid recreating function
+  const handleLogout = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       await logout();
+      // Navigate to Login screen after successful logout
+      navigation.dispatch(
+        CommonActions.navigate({
+          name: 'Login',
+        }),
+      );
     } catch (error) {
-      Alert.alert('Error', 'Failed to log out');
-      console.error(error);
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to log out. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [logout, navigation]);
 
   // Confirmation dialog for logout
   const confirmLogout = (): void => {
@@ -75,7 +82,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({route}) => {
             {loading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Ionicons name="log-out-outline" size={22} color="#fff" />
+              <>
+                <Ionicons name="log-out-outline" size={22} color="#fff" />
+                <Text style={styles.logoutTopButtonText}>Logout</Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
@@ -244,11 +254,17 @@ const styles = StyleSheet.create({
   },
   logoutTopButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 50,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutTopButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
   profileHeader: {
     alignItems: 'center',
@@ -257,48 +273,50 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    borderWidth: 3,
-    borderColor: '#fff',
-    marginBottom: 15,
+    backgroundColor: '#fff',
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    marginBottom: 12,
   },
   userName: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 5,
+    marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: '#e0e0ff',
+    color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 12,
   },
   roleContainer: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 50,
   },
   roleText: {
     color: '#fff',
     fontWeight: '500',
-    fontSize: 13,
+    fontSize: 12,
   },
   sectionContainer: {
     backgroundColor: '#fff',
-    margin: 15,
     borderRadius: 12,
-    padding: 15,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 20,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
     elevation: 2,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: 16,
   },
   menuItem: {
     flexDirection: 'row',
@@ -309,22 +327,24 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     flex: 1,
-    fontSize: 15,
+    marginLeft: 12,
+    fontSize: 16,
     color: '#333',
-    marginLeft: 15,
   },
   logoutButton: {
-    margin: 15,
-    backgroundColor: '#e74c3c',
-    borderRadius: 8,
-    paddingVertical: 15,
+    backgroundColor: '#f44336',
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 16,
   },
   logoutText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: 'bold',
     fontSize: 16,
     marginLeft: 8,
   },

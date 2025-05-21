@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {ChildStatus} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
 import {firestore} from '../../firebaseRN';
+import {CommonActions} from '@react-navigation/native';
 
 type ChildStatusScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'ChildStatus'>;
@@ -28,7 +29,8 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
   const [childStatuses, setChildStatuses] = useState<ChildStatus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const {user, isParent, isKindergarten} = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const {user, isParent, isKindergarten, logout} = useAuth();
 
   // Function to format date string
   const formatDate = (dateStr?: string): string => {
@@ -41,14 +43,35 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
     );
   };
 
-  // Load child statuses
-  const loadChildStatuses = async (): Promise<void> => {
+  // Handle logout using CommonActions instead of reset - wrapped in useCallback
+  const handleLogout = useCallback(async (): Promise<void> => {
+    try {
+      await logout();
+      // Navigate to Login screen using CommonActions instead of reset
+      navigation.dispatch(
+        CommonActions.navigate({
+          name: 'Login',
+        }),
+      );
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to log out. Please try again.');
+    }
+  }, [logout, navigation]);
+
+  // Load child statuses - wrapped in useCallback to prevent recreation on each render
+  const loadChildStatuses = useCallback(async (): Promise<void> => {
+    // Skip loading if no user is available
+    if (!user) {
+      setLoading(false);
+      setRefreshing(false);
+      setError('User not authenticated. Please log in.');
+      return;
+    }
+
     try {
       setLoading(true);
-
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+      setError(null);
 
       let data: ChildStatus[] = [];
 
@@ -89,17 +112,43 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
       setChildStatuses(data);
     } catch (error) {
       console.error('Error loading child statuses:', error);
-      Alert.alert('Error', 'Failed to load child statuses');
+      setError('Failed to load child statuses. Please log out and try again.');
+
+      // If authentication error, suggest logging out
+      if (
+        error instanceof Error &&
+        error.message === 'User not authenticated'
+      ) {
+        Alert.alert(
+          'Authentication Error',
+          'Your session has expired. Please log out and sign in again.',
+          [
+            {
+              text: 'Log Out',
+              onPress: handleLogout,
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+          ],
+        );
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user, isParent, isKindergarten, handleLogout]);
 
+  // Add proper dependencies to avoid unnecessary re-renders
   useEffect(() => {
-    loadChildStatuses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isParent, isKindergarten]);
+    if (user) {
+      loadChildStatuses();
+    } else {
+      setLoading(false);
+      setError('Please log in to view child statuses.');
+    }
+  }, [user, loadChildStatuses]);
 
   const onRefresh = (): void => {
     setRefreshing(true);
@@ -156,11 +205,44 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
         <Text style={styles.title}>
           {isParent ? 'Your Child Status' : 'Children Status'}
         </Text>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => {
+            Alert.alert(
+              'Logout',
+              'Are you sure you want to log out?',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {text: 'Logout', onPress: handleLogout},
+              ],
+              {cancelable: true},
+            );
+          }}>
+          <Icon name="log-out-outline" size={22} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4a80f5" />
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Icon name="alert-circle-outline" size={50} color="#f44336" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={loadChildStatuses}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.logoutFullButton}
+            onPress={handleLogout}>
+            <Text style={styles.logoutFullButtonText}>Log Out</Text>
+          </TouchableOpacity>
         </View>
       ) : childStatuses.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -200,6 +282,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomLeftRadius: 15,
     borderBottomRightRadius: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
     fontSize: 20,
@@ -211,6 +296,47 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#4a80f5',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  logoutButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  logoutFullButton: {
+    backgroundColor: '#f44336',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 15,
+  },
+  logoutFullButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   list: {
     padding: 16,
@@ -248,48 +374,46 @@ const styles = StyleSheet.create({
   },
   statusItem: {
     alignItems: 'center',
-    flex: 1,
   },
   statusText: {
     marginTop: 4,
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    color: '#555',
   },
   notesContainer: {
-    marginTop: 4,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    backgroundColor: '#f5f7fa',
+    padding: 10,
+    borderRadius: 8,
   },
   notesLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: 'bold',
     marginBottom: 4,
+    fontSize: 14,
+    color: '#555',
   },
   notes: {
     fontSize: 14,
-    color: '#666',
+    color: '#555',
     lineHeight: 20,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: 20,
   },
   emptyText: {
     fontSize: 18,
-    color: '#888',
-    textAlign: 'center',
-    marginTop: 10,
+    fontWeight: 'bold',
+    color: '#555',
+    marginTop: 15,
+    marginBottom: 5,
   },
   emptySubText: {
     fontSize: 14,
     color: '#888',
     textAlign: 'center',
-    marginTop: 10,
+    maxWidth: '80%',
   },
 });
 

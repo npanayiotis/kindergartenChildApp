@@ -66,6 +66,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({route}) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <View style={{flex: 1}} />
+          <TouchableOpacity
+            style={styles.logoutTopButton}
+            onPress={confirmLogout}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="log-out-outline" size={22} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
         <View style={styles.profileHeader}>
           {user.profileImage ? (
             <Image
@@ -221,6 +234,21 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 15,
+  },
+  logoutTopButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 50,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileHeader: {
     alignItems: 'center',

@@ -25,7 +25,7 @@ let firestore = null;
 // Flag to track if we're using real Firebase or fallback
 let usingMockImplementation = false;
 
-console.log('[FIREBASE] Starting initialization');
+console.log('[APP] Starting Firebase initialization...');
 
 try {
   // Import Firebase modules directly
@@ -34,7 +34,7 @@ try {
   const firebaseFirestore = require('@react-native-firebase/firestore').default;
 
   // Initialize Firebase if it hasn't been initialized yet
-  if (!firebaseApp.apps.length) {
+  if (firebaseApp.getApps().length === 0) {
     console.log('[FIREBASE] Initializing Firebase app with config');
     firebaseApp.initializeApp(firebaseConfig);
   } else {

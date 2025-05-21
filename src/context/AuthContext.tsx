@@ -116,14 +116,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
       setLoading(true);
       console.log('[AUTH] Logging out');
 
-      await apiService.auth.logout();
+      // First clear the user state to immediately update the UI
       setUser(null);
 
+      // Then perform the actual logout operation
+      try {
+        await apiService.auth.logout();
+      } catch (error) {
+        console.error('[AUTH] Error during Firebase logout:', error);
+        // Continue with cleanup even if Firebase logout fails
+      }
+
       // Clear user data from storage
-      await AsyncStorage.removeItem('user_data');
-      await AsyncStorage.removeItem('auth_token');
+      try {
+        await AsyncStorage.removeItem('user_data');
+        await AsyncStorage.removeItem('auth_token');
+      } catch (storageError) {
+        console.error('[AUTH] Error clearing storage:', storageError);
+      }
+
+      console.log('[AUTH] Logout completed successfully');
     } catch (error) {
       console.error('[AUTH] Logout error', error);
+      // Don't rethrow - we want the logout to "succeed" even if there are errors
+      // This ensures the user is logged out of the app
     } finally {
       setLoading(false);
     }

@@ -1,13 +1,13 @@
 /**
  * Firebase initialization module
- * This file explicitly initializes Firebase and exports the initialized components
+ * This file uses the React Native Firebase SDK
  */
 
-// Import Firebase modules
-import {initializeApp} from 'firebase/app';
-import {getFirestore} from 'firebase/firestore';
-import {getAuth} from 'firebase/auth';
-import {getStorage} from 'firebase/storage';
+// Import React Native Firebase modules
+import firebase from '@react-native-firebase/app';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import storage from '@react-native-firebase/storage';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -20,25 +20,19 @@ const firebaseConfig = {
   measurementId: 'G-TQVBQSZD9',
 };
 
-console.log('Starting Firebase initialization...');
+console.log('Starting Firebase initialization in api/firebase.ts...');
 
-// 1. Initialize Firebase app
-const app = initializeApp(firebaseConfig);
-console.log('Firebase app initialized');
+// 1. Initialize Firebase app if not already initialized
+if (firebase.apps.length === 0) {
+  console.log('Initializing Firebase app with config');
+  firebase.initializeApp(firebaseConfig);
+}
 
-// 2. Initialize Firebase Authentication
-const auth = getAuth(app);
-console.log('Firebase Auth initialized');
+// 2. Get Firebase service instances
+const app = firebase;
+const db = firestore();
 
-// 3. Initialize Firestore
-const db = getFirestore(app);
-console.log('Firebase Firestore initialized');
-
-// 4. Initialize Storage
-const storage = getStorage(app);
-console.log('Firebase Storage initialized');
-
-console.log('Firebase initialized successfully ✅');
+console.log('Firebase services initialized successfully in api/firebase.ts ✅');
 
 // Export initialized Firebase components
-export {app, auth, db, storage};
+export {app, auth, db as firestore, storage};

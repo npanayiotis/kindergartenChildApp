@@ -34,7 +34,7 @@ try {
   const firebaseFirestore = require('@react-native-firebase/firestore').default;
 
   // Initialize Firebase if it hasn't been initialized yet
-  if (firebaseApp.getApps().length === 0) {
+  if (firebaseApp.apps.length === 0) {
     console.log('[FIREBASE] Initializing Firebase app with config');
     firebaseApp.initializeApp(firebaseConfig);
   } else {

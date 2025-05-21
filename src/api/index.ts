@@ -2,6 +2,6 @@
 import apiService from './apiService';
 
 // Export Firebase initialization
-export {app, auth, db, storage} from './firebase';
+export {app, auth, firestore as db, storage} from './firebase';
 
 export default apiService;

@@ -22,23 +22,91 @@ type LoginScreenProps = {
 const LoginScreen: React.FC<LoginScreenProps> = ({navigation: _navigation}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const {login, loading} = useAuth();
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+    console.log('[LOGIN] Attempting login with:', {
+      email,
+      passwordLength: password.length,
+    });
+
+    // Validate input
+    if (!email.trim()) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    if (!password.trim()) {
+      Alert.alert('Error', 'Please enter your password');
+      return;
+    }
+
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
     try {
-      await login(email, password);
+      console.log('[LOGIN] Calling login function...');
+      await login(email.trim().toLowerCase(), password);
+      console.log('[LOGIN] Login successful');
       // Login successful - Auth context will handle navigation via AppNavigator
     } catch (error) {
-      Alert.alert(
-        'Login Failed',
-        (error as Error).message || 'An error occurred',
-      );
+      console.error('[LOGIN] Login failed:', error);
+
+      // Handle specific Firebase auth errors
+      let errorMessage = 'Login failed. Please try again.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('user-not-found')) {
+          errorMessage = 'No account found with this email address.';
+        } else if (error.message.includes('wrong-password')) {
+          errorMessage = 'Incorrect password. Please try again.';
+        } else if (error.message.includes('invalid-email')) {
+          errorMessage = 'Please enter a valid email address.';
+        } else if (error.message.includes('too-many-requests')) {
+          errorMessage = 'Too many failed attempts. Please try again later.';
+        } else if (error.message.includes('network')) {
+          errorMessage =
+            'Network error. Please check your internet connection.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      Alert.alert('Login Failed', errorMessage);
     }
+  };
+
+  // Quick login buttons for testing (remove in production)
+  const testCredentials = [
+    {email: 'testing5@gmail.com', label: 'Test User 1'},
+    {email: 'pana@gmail.com', label: 'Test User 2'},
+    {email: 'edwime@gmail.com', label: 'Test User 3'},
+  ];
+
+  const handleTestLogin = (testEmail: string) => {
+    setEmail(testEmail);
+    Alert.prompt(
+      'Test Login',
+      `Enter password for ${testEmail}:`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Login',
+          onPress: inputPassword => {
+            if (inputPassword) {
+              setPassword(inputPassword);
+              setTimeout(() => handleLogin(), 100);
+            }
+          },
+        },
+      ],
+      'secure-text',
+    );
   };
 
   return (
@@ -51,25 +119,39 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation: _navigation}) => {
       </View>
 
       <View style={styles.formContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="emailAddress"
+          />
+        </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            textContentType="password"
+          />
+          <TouchableOpacity
+            style={styles.showPasswordButton}
+            onPress={() => setShowPassword(!showPassword)}>
+            <Text style={styles.showPasswordText}>
+              {showPassword ? 'Hide' : 'Show'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={loading}>
           {loading ? (
@@ -78,6 +160,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation: _navigation}) => {
             <Text style={styles.buttonText}>Log In</Text>
           )}
         </TouchableOpacity>
+
+        {/* Test Login Buttons - Remove in production */}
+        <View style={styles.testSection}>
+          <Text style={styles.testSectionTitle}>Quick Test Login:</Text>
+          {testCredentials.map((cred, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.testButton}
+              onPress={() => handleTestLogin(cred.email)}>
+              <Text style={styles.testButtonText}>
+                {cred.label} ({cred.email})
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -107,15 +204,28 @@ const styles = StyleSheet.create({
   formContainer: {
     paddingHorizontal: 30,
   },
+  inputContainer: {
+    position: 'relative',
+    marginBottom: 15,
+  },
   input: {
     height: 50,
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    marginBottom: 15,
     paddingHorizontal: 15,
     fontSize: 16,
     backgroundColor: '#f9f9f9',
+  },
+  showPasswordButton: {
+    position: 'absolute',
+    right: 15,
+    top: 15,
+  },
+  showPasswordText: {
+    color: '#4a80f5',
+    fontSize: 14,
+    fontWeight: '500',
   },
   button: {
     backgroundColor: '#4a80f5',
@@ -125,15 +235,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+  },
   buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
-  errorText: {
-    color: 'red',
+  testSection: {
+    marginTop: 30,
+    padding: 15,
+    backgroundColor: '#f0f8ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  testSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 10,
     textAlign: 'center',
-    marginTop: 10,
+  },
+  testButton: {
+    backgroundColor: '#e8f0fe',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 5,
+    borderWidth: 1,
+    borderColor: '#4a80f5',
+  },
+  testButtonText: {
+    color: '#4a80f5',
+    fontSize: 12,
+    textAlign: 'center',
   },
 });
 

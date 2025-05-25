@@ -1,158 +1,72 @@
 /**
- * Firebase Debug Utilities
- *
- * This file contains helper functions to diagnose Firebase-related issues
+ * Firebase Debug Utility
+ * Use this to test Firebase connection and authentication
  */
 
-import {Platform} from 'react-native';
-import {auth, firestore, usingMockImplementation} from '../../firebaseRN';
+import {auth, firestore} from '../../firebaseRN';
 
-/**
- * Checks Firebase initialization status and availability
- * @returns {Object} Status report about Firebase services
- */
-export const checkFirebaseStatus = () => {
-  const status = {
-    platform: Platform.OS,
-    platformVersion: Platform.Version,
-    usingMocks: usingMockImplementation,
-    services: {
-      auth: {
-        available: !!auth,
-        initialized: false,
-        currentUser: null,
-      },
-      firestore: {
-        available: !!firestore,
-        initialized: false,
-      },
-    },
-    issues: [],
-  };
+// Test Firebase connectivity
+export const testFirebaseConnection = async () => {
+  console.log('🔧 Testing Firebase Connection...');
 
-  // Check Auth status
   try {
-    if (auth) {
-      status.services.auth.initialized = true;
-      status.services.auth.currentUser = auth.currentUser
-        ? {
-            uid: auth.currentUser.uid,
-            email: auth.currentUser.email,
-            isAnonymous: auth.currentUser.isAnonymous,
-          }
-        : null;
-    } else {
-      status.issues.push('Firebase Auth is not available');
-    }
+    // Test 1: Check if services are available
+    console.log('✅ Auth service available:', !!auth);
+    console.log('✅ Firestore service available:', !!firestore);
+
+    // Test 2: Try to access Firestore
+    const testCollection = firestore.collection('test');
+    console.log('✅ Firestore collection access successful');
+
+    // Test 3: Check current auth state
+    const currentUser = auth.currentUser;
+    console.log('👤 Current user:', currentUser ? currentUser.email : 'None');
+
+    return true;
   } catch (error) {
-    status.issues.push(`Firebase Auth error: ${error.message}`);
+    console.error('❌ Firebase connection test failed:', error);
+    return false;
   }
-
-  // Check Firestore status
-  try {
-    if (firestore) {
-      status.services.firestore.initialized = true;
-
-      // Try a simple operation to verify Firestore is working
-      try {
-        firestore.collection('_test_');
-        status.services.firestore.operationSucceeded = true;
-      } catch (error) {
-        status.services.firestore.operationSucceeded = false;
-        status.issues.push(`Firestore operation error: ${error.message}`);
-      }
-    } else {
-      status.issues.push('Firestore is not available');
-    }
-  } catch (error) {
-    status.issues.push(`Firestore error: ${error.message}`);
-  }
-
-  return status;
 };
 
-/**
- * Attempts a test login to check if auth is working
- * @param {string} testEmail - Test email to use
- * @param {string} testPassword - Test password to use
- * @returns {Promise<Object>} Result of the test
- */
-export const testFirebaseAuth = async (testEmail, testPassword) => {
-  try {
-    if (!auth) {
-      return {
-        success: false,
-        error: 'Firebase Auth is not available',
-        usingMocks: usingMockImplementation,
-      };
-    }
+// Test authentication with existing user
+export const testAuthentication = async (email, password) => {
+  console.log(`🔐 Testing authentication for: ${email}`);
 
-    console.log('[DEBUG] Testing Firebase Auth sign in');
-    const result = await auth.signInWithEmailAndPassword(
-      testEmail,
-      testPassword,
+  try {
+    const userCredential = await auth.signInWithEmailAndPassword(
+      email,
+      password,
     );
+    const user = userCredential.user;
 
-    return {
-      success: true,
-      user: {
-        uid: result.user.uid,
-        email: result.user.email,
-        role: result.user.role || 'unknown',
-      },
-    };
+    console.log('✅ Authentication successful!');
+    console.log('👤 User ID:', user.uid);
+    console.log('📧 Email:', user.email);
+    console.log('✅ Email verified:', user.emailVerified);
+
+    return {success: true, user};
   } catch (error) {
-    return {
-      success: false,
-      error: error.message || 'Unknown error',
-      code: error.code || 'unknown',
-      usingMocks: usingMockImplementation,
-    };
+    console.error('❌ Authentication failed:', error.message);
+    console.error('Error code:', error.code);
+
+    return {success: false, error: error.message, code: error.code};
   }
 };
 
-/**
- * Logs Firebase environment details to console
- */
-export const logFirebaseEnvironment = () => {
-  const status = checkFirebaseStatus();
-  console.log('===== Firebase Environment Report =====');
-  console.log(`Platform: ${status.platform} (${status.platformVersion})`);
-  console.log(
-    `Using mock implementations: ${status.usingMocks ? 'YES' : 'NO'}`,
-  );
-  console.log(
-    'Auth:',
-    status.services.auth.available ? 'Available' : 'NOT AVAILABLE',
-  );
-  console.log(
-    'Auth initialized:',
-    status.services.auth.initialized ? 'YES' : 'NO',
-  );
-  console.log(
-    'Current user:',
-    status.services.auth.currentUser
-      ? `${status.services.auth.currentUser.email}`
-      : 'None',
-  );
-  console.log(
-    'Firestore:',
-    status.services.firestore.available ? 'Available' : 'NOT AVAILABLE',
-  );
-  console.log(
-    'Firestore initialized:',
-    status.services.firestore.initialized ? 'YES' : 'NO',
-  );
+// Run all tests
+export const runAllTests = async () => {
+  console.log('🚀 Running all Firebase tests...');
+  console.log('=====================================');
 
-  if (status.issues.length > 0) {
-    console.log('ISSUES DETECTED:');
-    status.issues.forEach((issue, index) => {
-      console.log(`${index + 1}. ${issue}`);
-    });
-  } else {
-    console.log('No issues detected');
+  const connectionOk = await testFirebaseConnection();
+  if (!connectionOk) {
+    console.log('❌ Cannot continue - Firebase connection failed');
+    return;
   }
-  console.log('=======================================');
 
-  return status;
+  console.log('🏁 Tests completed');
+  console.log(
+    '🔐 To test authentication, use the test buttons in the login screen',
+  );
 };

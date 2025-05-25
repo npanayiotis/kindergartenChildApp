@@ -1,38 +1,49 @@
 /**
- * Firebase initialization module
+ * Firebase initialization module for React Native
  * This file uses the React Native Firebase SDK
  */
 
-// Import React Native Firebase modules
-import firebase from '@react-native-firebase/app';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
+import app from '@react-native-firebase/app';
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: 'AIzaSyD8hXVobTNfvodNicXI259FQ0sO1bQnICI',
-  authDomain: 'kindergartencyprus.firebaseapp.com',
-  projectId: 'kindergartencyprus',
-  storageBucket: 'kindergartencyprus.appspot.com',
-  messagingSenderId: '43663453268',
-  appId: '1:43663453268:web:35748d7194e33743d1a7e9',
-  measurementId: 'G-TQVBQSZD9',
-};
+console.log('🔥 Initializing Firebase services for React Native...');
 
-console.log('Starting Firebase initialization in api/firebase.ts...');
+// Check if Firebase is properly initialized
 
-// 1. Initialize Firebase app if not already initialized
-if (firebase.apps.length === 0) {
-  console.log('Initializing Firebase app with config');
-  firebase.initializeApp(firebaseConfig);
+// CORRECT: Initialize Firebase services - call them as functions
+const firebaseAuth = auth();
+const firebaseFirestore = firestore();
+const firebaseStorage = storage();
+
+// Test services
+try {
+  console.log('🔐 Auth service available:', !!firebaseAuth);
+  console.log('📦 Firestore service available:', !!firebaseFirestore);
+  console.log('💾 Storage service available:', !!firebaseStorage);
+
+  // Test current user
+  const currentUser = firebaseAuth.currentUser;
+  console.log('👤 Current user:', currentUser?.email || 'None');
+
+  console.log('✅ All Firebase services initialized successfully');
+} catch (error) {
+  console.error('❌ Firebase services initialization error:', error);
 }
 
-// 2. Get Firebase service instances
-const app = firebase;
-const db = firestore();
-
-console.log('Firebase services initialized successfully in api/firebase.ts ✅');
-
 // Export initialized Firebase components
-export {app, auth, db as firestore, storage};
+export {
+  app,
+  firebaseAuth as auth,
+  firebaseFirestore as firestore,
+  firebaseStorage as storage,
+};
+
+// Default export
+export default {
+  app,
+  auth: firebaseAuth,
+  firestore: firebaseFirestore,
+  storage: firebaseStorage,
+};

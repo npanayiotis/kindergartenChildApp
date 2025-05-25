@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import {useAuth} from '../context/AuthContext';
 import apiService from '../api/apiService';
+import firestore from '@react-native-firebase/firestore';
 
 // Import our centralized icon component
 import {Ionicon as Icon} from '../utils/IconProvider';
@@ -18,7 +19,7 @@ import {Ionicon as Icon} from '../utils/IconProvider';
 import {ChildStatus} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
-import {firestore} from '../../firebaseRN';
+
 import {CommonActions} from '@react-navigation/native';
 
 type ChildStatusScreenProps = {

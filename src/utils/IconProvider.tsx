@@ -1,17 +1,15 @@
 /**
- * Icon Provider Utility
+ * Icon Provider Utility - Working Solution
  *
- * This file provides a common interface for handling icon rendering with proper fallbacks
- * to ensure the app doesn't crash when vector icons fail to load.
+ * This replaces react-native-vector-icons with a working emoji-based system
+ * to avoid JSX transformation issues.
  */
 
 import React from 'react';
-import {Text} from 'react-native';
-// Use direct import from react-native-vector-icons instead of @expo/vector-icons
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import {Text, TextStyle} from 'react-native';
 
-// Define emoji map for fallbacks
-const EMOJI_MAP: {[key: string]: string} = {
+// Define emoji map for all icons used in the app
+const ICON_MAP: {[key: string]: string} = {
   // Navigation icons
   list: '📋',
   'list-outline': '📋',
@@ -20,81 +18,93 @@ const EMOJI_MAP: {[key: string]: string} = {
   person: '👤',
   'person-outline': '👤',
   'help-circle': '❓',
+  'log-out-outline': '🚪',
 
   // Status icons
   'happy-outline': '😊',
   'restaurant-outline': '🍽️',
   'bed-outline': '🛌',
   'information-circle-outline': 'ℹ️',
+  'alert-circle-outline': '⚠️',
+  'chevron-forward': '▶️',
+  'document-text-outline': '📄',
+  'mail-outline': '📧',
+  'notifications-outline': '🔔',
+  'lock-closed-outline': '🔒',
+  'help-circle-outline': '❓',
+  'code-outline': '💻',
 
-  // Generic fallback
+  // Default fallback
   default: '•',
 };
 
-// Function to get emoji fallback for an icon name
-export const getEmojiFallback = (iconName: string): string => {
-  // Check if we have a specific emoji for this icon
-  if (iconName in EMOJI_MAP) {
-    return EMOJI_MAP[iconName];
+interface IconProps {
+  name: string;
+  size: number;
+  color: string;
+  style?: TextStyle;
+}
+
+// Function to get icon for a name
+const getIcon = (iconName: string): string => {
+  if (iconName in ICON_MAP) {
+    return ICON_MAP[iconName];
   }
 
   // Check if any key includes this icon name
-  for (const key in EMOJI_MAP) {
+  for (const key in ICON_MAP) {
     if (iconName.includes(key)) {
-      return EMOJI_MAP[key];
+      return ICON_MAP[key];
     }
   }
 
-  // Default fallback
-  return EMOJI_MAP.default;
+  return ICON_MAP.default;
 };
 
-// Ionicons component with fallback
-export const Ionicon = ({
-  name,
-  size,
-  color,
-}: {
-  name: any; // Using 'any' to bypass type checking for now
-  size: number;
-  color: string;
-}) => {
-  try {
-    // Directly use the imported Ionicons component
-    return <Ionicons name={name} size={size} color={color} />;
-  } catch (error) {
-    // Return text-based fallback if icons fail to load
-    return (
-      <Text style={{color, fontSize: size / 2, fontWeight: 'bold'}}>
-        {getEmojiFallback(name)}
-      </Text>
-    );
-  }
+// Main Icon component
+export const Ionicon: React.FC<IconProps> = ({name, size, color, style}) => {
+  const icon = getIcon(name);
+
+  return (
+    <Text
+      style={[
+        {
+          fontSize: size * 0.8,
+          color: color,
+          textAlign: 'center',
+          lineHeight: size,
+        },
+        style,
+      ]}>
+      {icon}
+    </Text>
+  );
 };
 
 // TabBar Icon component
-export const TabBarIcon = ({
-  name,
-  size,
-  color,
-}: {
-  name: any; // Using 'any' to bypass type checking for now
-  size: number;
-  color: string;
-}) => {
-  try {
-    // Use the imported Ionicons
-    return <Ionicons name={name} size={size} color={color} />;
-  } catch (error) {
-    // Fallback
-    return (
-      <Text style={{color, fontSize: size / 2, fontWeight: 'bold'}}>
-        {getEmojiFallback(name)}
-      </Text>
-    );
-  }
+export const TabBarIcon: React.FC<IconProps> = ({name, size, color, style}) => {
+  const icon = getIcon(name);
+
+  return (
+    <Text
+      style={[
+        {
+          fontSize: size * 0.8,
+          color: color,
+          textAlign: 'center',
+          lineHeight: size,
+        },
+        style,
+      ]}>
+      {icon}
+    </Text>
+  );
 };
 
+// Export function for getting emoji fallback
+export const getEmojiFallback = getIcon;
+
+// Default export
 export default {
   Ionicon,
   TabBarIcon,

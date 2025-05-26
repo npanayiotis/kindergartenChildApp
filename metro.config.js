@@ -1,17 +1,28 @@
 const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
-const {makeMetroConfig} = require('@expo/metro-config');
 
 /**
  * Metro configuration
- * https://reactnative.dev/docs/metro
+ * https://facebook.github.io/metro/docs/configuration
  *
- * @type {import('@react-native/metro-config').MetroConfig}
+ * @type {import('metro-config').MetroConfig}
  */
 const config = {
+  transformer: {
+    babelTransformerPath: require.resolve('react-native-svg-transformer'),
+  },
   resolver: {
-    unstable_enablePackageExports: true,
-    sourceExts: ['js', 'jsx', 'json', 'ts', 'tsx'],
-    assetExts: ['png', 'jpg', 'jpeg', 'gif', 'svg'],
+    assetExts: [
+      'bin',
+      'txt',
+      'jpg',
+      'png',
+      'json',
+      'ttf',
+      'otf',
+      'woff',
+      'woff2',
+    ],
+    sourceExts: ['js', 'json', 'ts', 'tsx', 'jsx', 'svg'],
   },
 };
 

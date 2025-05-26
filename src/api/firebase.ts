@@ -1,6 +1,6 @@
 /**
- * Firebase initialization module for React Native
- * This file uses the React Native Firebase SDK
+ * Firebase initialization for React Native
+ * This is the ONLY Firebase file you need
  */
 
 import auth from '@react-native-firebase/auth';
@@ -8,42 +8,46 @@ import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
 import app from '@react-native-firebase/app';
 
-console.log('🔥 Initializing Firebase services for React Native...');
+console.log('🔥 Initializing Firebase for React Native...');
 
-// Check if Firebase is properly initialized
+// Initialize services
+let firebaseAuth: any;
+let firebaseFirestore: any;
+let firebaseStorage: any;
+let firebaseApp: any;
 
-// CORRECT: Initialize Firebase services - call them as functions
-const firebaseAuth = auth();
-const firebaseFirestore = firestore();
-const firebaseStorage = storage();
-
-// Test services
 try {
-  console.log('🔐 Auth service available:', !!firebaseAuth);
-  console.log('📦 Firestore service available:', !!firebaseFirestore);
-  console.log('💾 Storage service available:', !!firebaseStorage);
+  firebaseAuth = auth();
+  firebaseFirestore = firestore();
+  firebaseStorage = storage();
+  firebaseApp = app();
 
-  // Test current user
+  console.log('✅ Firebase services initialized successfully');
+  console.log('🔐 Auth service ready:', !!firebaseAuth);
+  console.log('📦 Firestore service ready:', !!firebaseFirestore);
+  console.log('💾 Storage service ready:', !!firebaseStorage);
+  console.log('🏠 App name:', firebaseApp.name);
+
+  // Check current user (will be null initially)
   const currentUser = firebaseAuth.currentUser;
   console.log('👤 Current user:', currentUser?.email || 'None');
-
-  console.log('✅ All Firebase services initialized successfully');
 } catch (error) {
-  console.error('❌ Firebase services initialization error:', error);
+  console.error('❌ Firebase initialization failed:', error);
+  throw error;
 }
 
-// Export initialized Firebase components
+// Export the initialized services
 export {
-  app,
   firebaseAuth as auth,
   firebaseFirestore as firestore,
   firebaseStorage as storage,
+  firebaseApp as app,
 };
 
 // Default export
 export default {
-  app,
   auth: firebaseAuth,
   firestore: firebaseFirestore,
   storage: firebaseStorage,
+  app: firebaseApp,
 };

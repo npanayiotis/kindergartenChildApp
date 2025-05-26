@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState} from 'react';
 import {
   SafeAreaView,
   StatusBar,
@@ -11,16 +11,12 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AuthProvider} from './src/context/AuthContext';
 import AppNavigation from './src/navigation/AppNavigation';
 import FirebaseDebugScreen from './src/screens/FirebaseDebugScreen';
-import {logFirebaseEnvironment} from './src/utils/firebaseDebug';
+
+// Initialize Firebase by importing the module
+import './src/api/firebase';
 
 function App(): React.JSX.Element {
   const [showDebug, setShowDebug] = useState(false);
-
-  // Run a Firebase status check at startup
-  useEffect(() => {
-    // Log Firebase environment info on app start
-    logFirebaseEnvironment();
-  }, []);
 
   if (showDebug) {
     return (

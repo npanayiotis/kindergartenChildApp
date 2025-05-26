@@ -1,4 +1,4 @@
-// API service for mobile app - Fixed for React Native Firebase
+// Fixed API service for React Native Firebase
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {ChildStatus, BlogPost, User} from '../types';
 import auth from '@react-native-firebase/auth';
@@ -6,30 +6,22 @@ import firestore from '@react-native-firebase/firestore';
 
 console.log('🔥 API Service initializing with React Native Firebase...');
 
-// Get token from AsyncStorage
-const getToken = async (): Promise<string | null> => {
-  try {
-    return await AsyncStorage.getItem('auth_token');
-  } catch (error) {
-    console.error('Failed to get token', error);
-    return null;
-  }
-};
-
-// Auth response type
-interface AuthResponse {
-  token: string;
-  user: User;
-}
-
 // Helper function to convert Firebase user to our User type
-const convertFirebaseUser = (fbUser: any): User => {
-  // Extract role from custom claims or default to parent
+const convertFirebaseUser = async (fbUser: any): Promise<User> => {
   let role: 'parent' | 'kindergarten' | 'admin' = 'parent';
 
-  // You can extend this to get role from Firestore or custom claims
-  if (fbUser.role) {
-    role = fbUser.role as 'parent' | 'kindergarten' | 'admin';
+  try {
+    // Try to get additional user data from Firestore
+    const userDoc = await firestore().collection('users').doc(fbUser.uid).get();
+
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      if (userData?.role) {
+        role = userData.role as 'parent' | 'kindergarten' | 'admin';
+      }
+    }
+  } catch (error) {
+    console.warn('[API] Could not fetch user role from Firestore:', error);
   }
 
   return {
@@ -41,7 +33,12 @@ const convertFirebaseUser = (fbUser: any): User => {
   };
 };
 
-// API methods
+// Auth response type
+interface AuthResponse {
+  token: string;
+  user: User;
+}
+
 const apiService = {
   // Auth endpoints
   auth: {
@@ -60,37 +57,8 @@ const apiService = {
 
         console.log('✅ [API] Firebase authentication successful');
 
-        let userData = userCredential.user;
-
-        // Try to get additional user data from Firestore
-        try {
-          console.log('📦 [API] Getting additional user data from Firestore');
-          const userDoc = await firestore()
-            .collection('users')
-            .doc(userCredential.user.uid)
-            .get();
-
-          if (userDoc.exists) {
-            const firestoreData = userDoc.data();
-            console.log('✅ [API] Found user data in Firestore');
-            if (firestoreData) {
-              userData = {
-                ...userData,
-                ...firestoreData,
-              };
-            }
-          } else {
-            console.log('ℹ️ [API] No additional user data found in Firestore');
-          }
-        } catch (firestoreError) {
-          console.warn(
-            '[API] Could not fetch additional user data from Firestore:',
-            firestoreError,
-          );
-        }
-
         // Convert Firebase user to our app's User type
-        const user = convertFirebaseUser(userData);
+        const user = await convertFirebaseUser(userCredential.user);
 
         // Store user data for our app
         await AsyncStorage.setItem('user_data', JSON.stringify(user));
@@ -143,6 +111,7 @@ const apiService = {
         const childStatusSnapshot = await firestore()
           .collection('childStatus')
           .where('parentId', '==', currentUser.uid)
+          .orderBy('updatedAt', 'desc')
           .get();
 
         if (!childStatusSnapshot.empty) {
@@ -181,34 +150,36 @@ const apiService = {
       }
     },
 
-    getById: async (id: string): Promise<BlogPost> => {
+    // FIXED: This was incorrectly calling blog endpoint before
+    getById: async (id: string): Promise<ChildStatus> => {
       try {
-        console.log('📰 [API] Fetching blog post by ID:', id);
+        console.log('📦 [API] Fetching child status by ID:', id);
 
-        const doc = await firestore().collection('blog').doc(id).get();
+        const doc = await firestore().collection('childStatus').doc(id).get();
 
-        // CORRECT: Check if document exists properly
         if (doc.exists && doc.data()) {
-          const data = doc.data()!; // Use non-null assertion since we checked exists
+          const data = doc.data()!;
           return {
             id: doc.id,
-            title: data.title || '',
-            content: data.content || '',
+            childName: data.childName || '',
             createdAt:
               data.createdAt?.toDate?.()?.toISOString() ||
               new Date().toISOString(),
             updatedAt:
               data.updatedAt?.toDate?.()?.toISOString() ||
               new Date().toISOString(),
+            mood: data.mood || '',
+            meal: data.meal || '',
+            nap: !!data.nap,
+            notes: data.notes || '',
+            parentId: data.parentId || '',
             kindergartenId: data.kindergartenId || '',
-            kindergartenName: data.kindergartenName || 'Kindergarten',
-            image: data.image,
           };
         } else {
-          throw new Error('Post not found');
+          throw new Error('Child status not found');
         }
       } catch (error) {
-        console.error('❌ [API] Error fetching blog post by ID:', error);
+        console.error('❌ [API] Error fetching child status by ID:', error);
         throw error;
       }
     },
@@ -226,7 +197,6 @@ const apiService = {
       try {
         console.log('📝 [API] Updating child status record:', id);
 
-        // Fix: Use firestore.FieldValue.serverTimestamp() correctly
         await firestore()
           .collection('childStatus')
           .doc(id)
@@ -264,6 +234,67 @@ const apiService = {
         }
       } catch (error) {
         console.error('❌ [API] Error updating child status:', error);
+        throw error;
+      }
+    },
+
+    // For kindergarten users to get all children in their care
+    getAllForKindergarten: async (): Promise<ChildStatus[]> => {
+      const currentUser = auth().currentUser;
+
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      try {
+        console.log(
+          '📦 [API] Fetching child status records for kindergarten:',
+          currentUser.uid,
+        );
+
+        const childStatusSnapshot = await firestore()
+          .collection('childStatus')
+          .where('kindergartenId', '==', currentUser.uid)
+          .orderBy('updatedAt', 'desc')
+          .get();
+
+        if (!childStatusSnapshot.empty) {
+          console.log(
+            '✅ [API] Found',
+            childStatusSnapshot.size,
+            'child status records',
+          );
+
+          return childStatusSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              childName: data?.childName || '',
+              createdAt:
+                data?.createdAt?.toDate?.()?.toISOString() ||
+                new Date().toISOString(),
+              updatedAt:
+                data?.updatedAt?.toDate?.()?.toISOString() ||
+                new Date().toISOString(),
+              mood: data?.mood || '',
+              meal: data?.meal || '',
+              nap: !!data?.nap,
+              notes: data?.notes || '',
+              parentId: data?.parentId || '',
+              kindergartenId: data?.kindergartenId || '',
+            };
+          });
+        } else {
+          console.log(
+            'ℹ️ [API] No child status records found for kindergarten',
+          );
+          return [];
+        }
+      } catch (error) {
+        console.error(
+          '❌ [API] Error fetching child status for kindergarten:',
+          error,
+        );
         throw error;
       }
     },
@@ -344,21 +375,21 @@ const apiService = {
 
         const doc = await firestore().collection('blog').doc(id).get();
 
-        if (doc.exists) {
-          const data = doc.data();
+        if (doc.exists && doc.data()) {
+          const data = doc.data()!;
           return {
             id: doc.id,
-            title: data?.title || '',
-            content: data?.content || '',
+            title: data.title || '',
+            content: data.content || '',
             createdAt:
-              data?.createdAt?.toDate?.()?.toISOString() ||
+              data.createdAt?.toDate?.()?.toISOString() ||
               new Date().toISOString(),
             updatedAt:
-              data?.updatedAt?.toDate?.()?.toISOString() ||
+              data.updatedAt?.toDate?.()?.toISOString() ||
               new Date().toISOString(),
-            kindergartenId: data?.kindergartenId || '',
-            kindergartenName: data?.kindergartenName || 'Kindergarten',
-            image: data?.image,
+            kindergartenId: data.kindergartenId || '',
+            kindergartenName: data.kindergartenName || 'Kindergarten',
+            image: data.image,
           };
         } else {
           throw new Error('Post not found');

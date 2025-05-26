@@ -1,7 +1,8 @@
-// Export API service
+// Clean API exports - no more conflicts
 import apiService from './apiService';
 
-// Export Firebase initialization
-export {app, auth, firestore as db, storage} from './firebase';
+// Export Firebase components from our single source
+export {app, auth, firestore, storage} from './firebase';
 
+// Export the main API service
 export default apiService;

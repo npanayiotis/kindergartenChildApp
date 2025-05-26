@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import {useAuth} from '../context/AuthContext';
 import apiService from '../api/apiService';
-import firestore from '@react-native-firebase/firestore';
 
 // Import our centralized icon component
 import {Ionicon as Icon} from '../utils/IconProvider';
@@ -19,7 +18,6 @@ import {Ionicon as Icon} from '../utils/IconProvider';
 import {ChildStatus} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
-
 import {CommonActions} from '@react-navigation/native';
 
 type ChildStatusScreenProps = {
@@ -44,11 +42,10 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
     );
   };
 
-  // Handle logout using CommonActions instead of reset - wrapped in useCallback
+  // Handle logout - wrapped in useCallback
   const handleLogout = useCallback(async (): Promise<void> => {
     try {
       await logout();
-      // Navigate to Login screen using CommonActions instead of reset
       navigation.dispatch(
         CommonActions.navigate({
           name: 'Login',
@@ -60,9 +57,8 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
     }
   }, [logout, navigation]);
 
-  // Load child statuses - wrapped in useCallback to prevent recreation on each render
+  // Load child statuses - wrapped in useCallback
   const loadChildStatuses = useCallback(async (): Promise<void> => {
-    // Skip loading if no user is available
     if (!user) {
       setLoading(false);
       setRefreshing(false);
@@ -76,49 +72,23 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
 
       let data: ChildStatus[] = [];
 
-      // Handle different roles differently
       if (isParent) {
-        // Parents can only see their own children
+        // Parents see their own children's statuses
         data = await apiService.childStatus.getAll();
       } else if (isKindergarten) {
-        // This is a kindergarten/admin - query differently to get children in this kindergarten
-        const childStatusSnapshot = await firestore
-          .collection('childStatus')
-          .where('kindergartenId', '==', user.id)
-          .get();
-
-        if (!childStatusSnapshot.empty) {
-          data = childStatusSnapshot.docs.map(doc => {
-            const docData = doc.data();
-            return {
-              id: doc.id,
-              childName: docData?.childName || '',
-              createdAt:
-                docData?.createdAt?.toDate?.()?.toISOString() ||
-                new Date().toISOString(),
-              updatedAt:
-                docData?.updatedAt?.toDate?.()?.toISOString() ||
-                new Date().toISOString(),
-              mood: docData?.mood || '',
-              meal: docData?.meal || '',
-              nap: !!docData?.nap,
-              notes: docData?.notes || '',
-              parentId: docData?.parentId || '',
-              kindergartenId: docData?.kindergartenId || '',
-            };
-          });
-        }
+        // Kindergartens see all children in their care
+        data = await apiService.childStatus.getAllForKindergarten();
       }
 
       setChildStatuses(data);
     } catch (error) {
       console.error('Error loading child statuses:', error);
-      setError('Failed to load child statuses. Please log out and try again.');
+      setError('Failed to load child statuses. Please try again.');
 
       // If authentication error, suggest logging out
       if (
         error instanceof Error &&
-        error.message === 'User not authenticated'
+        error.message.includes('not authenticated')
       ) {
         Alert.alert(
           'Authentication Error',
@@ -141,7 +111,6 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
     }
   }, [user, isParent, isKindergarten, handleLogout]);
 
-  // Add proper dependencies to avoid unnecessary re-renders
   useEffect(() => {
     if (user) {
       loadChildStatuses();

@@ -114,7 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
 
     // Cleanup the listener
     return unsubscribe;
-  }, []);
+  }, [user]);
 
   // Login function
   const login = async (email: string, password: string): Promise<void> => {

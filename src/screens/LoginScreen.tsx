@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import {useAuth} from '../context/AuthContext';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -110,80 +111,86 @@ const LoginScreen: React.FC<LoginScreenProps> = ({navigation: _navigation}) => {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}>
-      <View style={styles.logoContainer}>
-        <Logo width={120} height={120} style={styles.logo} />
-        <Text style={styles.title}>Cyprus Kindergarten Finder</Text>
-      </View>
-
-      <View style={styles.formContainer}>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="emailAddress"
-          />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}>
+        <View style={styles.logoContainer}>
+          <Logo width={120} height={120} style={styles.logo} />
+          <Text style={styles.title}>Cyprus Kindergarten Finder</Text>
         </View>
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            textContentType="password"
-          />
-          <TouchableOpacity
-            style={styles.showPasswordButton}
-            onPress={() => setShowPassword(!showPassword)}>
-            <Text style={styles.showPasswordText}>
-              {showPassword ? 'Hide' : 'Show'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.formContainer}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="emailAddress"
+            />
+          </View>
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Log In</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Test Login Buttons - Remove in production */}
-        <View style={styles.testSection}>
-          <Text style={styles.testSectionTitle}>Quick Test Login:</Text>
-          {testCredentials.map((cred, index) => (
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              textContentType="password"
+            />
             <TouchableOpacity
-              key={index}
-              style={styles.testButton}
-              onPress={() => handleTestLogin(cred.email)}>
-              <Text style={styles.testButtonText}>
-                {cred.label} ({cred.email})
+              style={styles.showPasswordButton}
+              onPress={() => setShowPassword(!showPassword)}>
+              <Text style={styles.showPasswordText}>
+                {showPassword ? 'Hide' : 'Show'}
               </Text>
             </TouchableOpacity>
-          ))}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Log In</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Test Login Buttons - Remove in production */}
+          <View style={styles.testSection}>
+            <Text style={styles.testSectionTitle}>Quick Test Login:</Text>
+            {testCredentials.map((cred, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.testButton}
+                onPress={() => handleTestLogin(cred.email)}>
+                <Text style={styles.testButtonText}>
+                  {cred.label} ({cred.email})
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff', // Ensure white background
+  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff', // Ensure white background
   },
   logoContainer: {
     alignItems: 'center',
@@ -216,6 +223,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 16,
     backgroundColor: '#f9f9f9',
+    color: '#333', // Ensure text is visible
   },
   showPasswordButton: {
     position: 'absolute',

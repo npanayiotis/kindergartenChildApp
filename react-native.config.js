@@ -1,13 +1,11 @@
 module.exports = {
   dependencies: {
-    // Disable react-native-vector-icons autolinking to prevent iOS build issues
     'react-native-vector-icons': {
       platforms: {
-        ios: null,
-        android: null,
+        android: null, // disable Android platform, other platforms will still autolink if provided
+        ios: null, // disable iOS platform, other platforms will still autolink if provided
       },
     },
   },
-  // Remove assets linking since we're using emoji-based icons
   assets: [],
 };

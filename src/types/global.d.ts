@@ -7,11 +7,18 @@ declare global {
   var firebaseDB: FirebaseFirestore;
 }
 
-// Firebase module type declaration
-declare module '../../firebaseRN' {
-  export const firebase: Firebase;
-  export const auth: FirebaseAuth;
-  export const firestore: FirebaseFirestore;
-  export const firebaseConfig: Record<string, string>;
-  export const usingMockImplementation: boolean;
+// React Native Firebase module declarations
+declare module '@react-native-firebase/auth' {
+  const auth: () => FirebaseAuth;
+  export default auth;
+}
+
+declare module '@react-native-firebase/firestore' {
+  const firestore: () => FirebaseFirestore;
+  export default firestore;
+}
+
+declare module '@react-native-firebase/app' {
+  const app: () => any;
+  export default app;
 }

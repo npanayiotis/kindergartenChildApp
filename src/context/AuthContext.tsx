@@ -1,4 +1,4 @@
-// Auth Context for React Native mobile app - Fixed for proper Firebase integration
+// Auth Context for React Native mobile app - FIXED INFINITE LOOP
 
 import React, {
   createContext,
@@ -11,7 +11,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../api/apiService';
 import {User, AuthContextType} from '../types';
 import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
 
 // Create auth context with proper typing
 const AuthContext = createContext<AuthContextType>({
@@ -34,11 +33,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Check for existing user session on app start
+  // Check for existing user session on app start - FIXED VERSION
   useEffect(() => {
-    const loadUserFromStorage = async (): Promise<void> => {
+    let unsubscribe: (() => void) | null = null;
+
+    const initializeAuth = async (): Promise<void> => {
       try {
-        console.log('🔍 [AUTH] Checking for existing user session...');
+        console.log('🔍 [AUTH] Initializing authentication...');
 
         // First check AsyncStorage for user data
         const userDataJson = await AsyncStorage.getItem('user_data');
@@ -49,42 +50,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
           setUser(JSON.parse(userDataJson));
         }
 
-        // Then check Firebase auth state
-        const currentUser = auth().currentUser;
-        if (currentUser) {
+        // Set up Firebase auth state listener - ONLY ONCE
+        unsubscribe = auth().onAuthStateChanged(async firebaseUser => {
           console.log(
-            '✅ [AUTH] Found current Firebase user:',
-            currentUser.email,
+            '🔥 [AUTH] Firebase auth state changed:',
+            firebaseUser?.email || 'None',
           );
 
-          // If we have Firebase user but no local data, create local data
-          if (!userDataJson) {
-            const userData: User = {
-              id: currentUser.uid,
-              email: currentUser.email || '',
-              name: currentUser.displayName || 'User',
-              role: 'parent', // Default role, can be enhanced later
-            };
+          if (firebaseUser) {
+            // User is signed in
+            if (!userDataJson) {
+              // Create local user data if it doesn't exist
+              const userData: User = {
+                id: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                name: firebaseUser.displayName || 'User',
+                role: 'parent', // Default role
+              };
 
-            setUser(userData);
-            await AsyncStorage.setItem('user_data', JSON.stringify(userData));
+              setUser(userData);
+              await AsyncStorage.setItem('user_data', JSON.stringify(userData));
 
-            if (!token) {
-              const newToken = 'firebase-token-' + Date.now();
-              await AsyncStorage.setItem('auth_token', newToken);
+              if (!token) {
+                const newToken = 'firebase-token-' + Date.now();
+                await AsyncStorage.setItem('auth_token', newToken);
+              }
+            }
+          } else {
+            // User is signed out
+            if (user) {
+              console.log('🚪 [AUTH] User signed out - clearing local data');
+              setUser(null);
+              await AsyncStorage.removeItem('user_data');
+              await AsyncStorage.removeItem('auth_token');
             }
           }
-        } else if (userDataJson) {
-          // We have local data but no Firebase user - clear local data
-          console.log(
-            '⚠️ [AUTH] Local user data exists but no Firebase user - clearing',
-          );
-          await AsyncStorage.removeItem('user_data');
-          await AsyncStorage.removeItem('auth_token');
-          setUser(null);
-        }
+        });
       } catch (error) {
-        console.error('❌ [AUTH] Failed to load user data:', error);
+        console.error('❌ [AUTH] Failed to initialize auth:', error);
         // Clear any corrupted data
         await AsyncStorage.removeItem('user_data');
         await AsyncStorage.removeItem('auth_token');
@@ -94,27 +97,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
       }
     };
 
-    loadUserFromStorage();
+    initializeAuth();
 
-    // Set up Firebase auth state listener
-    const unsubscribe = auth().onAuthStateChanged(firebaseUser => {
-      console.log(
-        '🔥 [AUTH] Firebase auth state changed:',
-        firebaseUser?.email || 'None',
-      );
-
-      if (!firebaseUser && user) {
-        // User signed out
-        console.log('🚪 [AUTH] User signed out - clearing local data');
-        setUser(null);
-        AsyncStorage.removeItem('user_data').catch(console.error);
-        AsyncStorage.removeItem('auth_token').catch(console.error);
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
       }
-    });
-
-    // Cleanup the listener
-    return unsubscribe;
-  }, [user]);
+    };
+  }, []); // EMPTY DEPENDENCY ARRAY - run only once
 
   // Login function
   const login = async (email: string, password: string): Promise<void> => {

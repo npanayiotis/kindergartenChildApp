@@ -9,8 +9,7 @@ import {TabBarIcon} from '../utils/IconProvider';
 
 // Import screens
 import LoginScreen from '../screens/LoginScreen';
-import ChildStatusScreen from '../screens/ChildStatusScreen';
-import ChildStatusDetailScreen from '../screens/ChildStatusDetailScreen';
+import ChildActivitiesScreen from '../screens/ChildActivitiesScreen';
 import BlogScreen from '../screens/BlogScreen';
 import BlogPostDetailsScreen from '../screens/BlogPostDetailsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -30,18 +29,14 @@ const AuthStack: React.FC = () => (
   </Stack.Navigator>
 );
 
-// Child Status Stack
-const ChildStatusStack: React.FC = () => (
+// Child Activities Stack
+const ChildActivitiesStack: React.FC = () => (
   <Stack.Navigator
     screenOptions={{
       headerShown: false,
       cardStyle: {backgroundColor: '#fff'},
     }}>
-    <Stack.Screen name="ChildStatus" component={ChildStatusScreen} />
-    <Stack.Screen
-      name="ChildStatusDetails"
-      component={ChildStatusDetailScreen}
-    />
+    <Stack.Screen name="ChildActivities" component={ChildActivitiesScreen} />
   </Stack.Navigator>
 );
 
@@ -95,9 +90,9 @@ const MainTabs: React.FC<MainTabsProps> = ({debugHandler}) => {
       })}>
       <Tab.Screen
         name="Status"
-        component={ChildStatusStack}
+        component={ChildActivitiesStack}
         options={{
-          title: isParent ? 'Child Status' : 'Children',
+          title: isParent ? 'Activities' : 'All Activities',
         }}
       />
       <Tab.Screen

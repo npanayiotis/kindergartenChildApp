@@ -18,17 +18,24 @@ export interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-// Child Status type
-export interface ChildStatus {
+// Child Activity type - Updated for your Firebase structure
+export interface ChildActivity {
   id: string;
+  childId: string;
   childName: string;
-  mood: string;
-  meal: string;
-  nap: boolean;
-  notes: string;
-  createdAt: string;
-  updatedAt: string;
-  parentId: string;
+  type: string; // meal, nap, activity, etc.
+  subtype: string; // breakfast, lunch, playtime, etc.
+  timestamp: string;
+  details: string;
+  createdBy: string;
+  kindergartenId: string;
+  deleted: boolean;
+}
+
+// Child type
+export interface Child {
+  id: string;
+  name: string;
   kindergartenId: string;
 }
 
@@ -47,8 +54,8 @@ export interface BlogPost {
 // Navigation Types
 export type RootStackParamList = {
   Login: undefined;
-  ChildStatus: undefined;
-  ChildStatusDetails: {childId: string};
+  ChildActivities: undefined;
+  ChildActivityDetails: {activityId: string};
   BlogList: undefined;
   BlogPostDetails: {postId: string};
   Profile: {

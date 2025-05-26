@@ -7,9 +7,7 @@ const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
  * @type {import('metro-config').MetroConfig}
  */
 const config = {
-  transformer: {
-    babelTransformerPath: require.resolve('react-native-svg-transformer'),
-  },
+  // Remove SVG transformer if you're not using SVG files
   resolver: {
     assetExts: [
       'bin',
@@ -21,8 +19,9 @@ const config = {
       'otf',
       'woff',
       'woff2',
+      'svg', // Keep SVG as asset instead of transforming
     ],
-    sourceExts: ['js', 'json', 'ts', 'tsx', 'jsx', 'svg'],
+    sourceExts: ['js', 'json', 'ts', 'tsx', 'jsx'],
   },
 };
 

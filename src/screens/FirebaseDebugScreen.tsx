@@ -14,7 +14,6 @@ import {
   testFirebaseAuth,
   logFirebaseEnvironment,
 } from '../utils/firebaseDebug';
-import {usingMockImplementation} from '../../firebaseRN';
 
 // Define types for the auth test result
 interface AuthTestResult {
@@ -37,6 +36,12 @@ const FirebaseDebugScreen: React.FC = () => {
   const [testAuthResult, setTestAuthResult] = useState<AuthTestResult | null>(
     null,
   );
+
+  // Check if using mocks - simple check based on Firebase availability
+  const usingMockImplementation =
+    statusReport &&
+    (!statusReport.services.auth.available ||
+      !statusReport.services.firestore.available);
 
   useEffect(() => {
     refreshStatus();

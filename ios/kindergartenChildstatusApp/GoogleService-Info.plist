@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyD8hXVobTNfvodNicXI259FQ0sO1bQnICI</string>
+	<string>AIzaSyAx4ZIHHi65tCvaMs7L83vXV2s8E7VckoQ</string>
 	<key>GCM_SENDER_ID</key>
-	<string>43663453268</string>
+	<string>436634536268</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.kindergartenapp.cyprus</string>
+	<string>org.reactjs.native.example.kindergartenChildstatusApp</string>
 	<key>PROJECT_ID</key>
 	<string>kindergartencyprus</string>
 	<key>STORAGE_BUCKET</key>
-	<string>kindergartencyprus.appspot.com</string>
+	<string>kindergartencyprus.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:43663453268:ios:35748d7194e33743d1a7e9</string>
+	<string>1:436634536268:ios:f15dea57d496d08bd1a7e9</string>
 </dict>
-</plist> 
+</plist>

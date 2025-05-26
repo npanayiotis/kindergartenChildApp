@@ -13,7 +13,7 @@ import {useAuth} from '../context/AuthContext';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RouteProp} from '@react-navigation/native';
 import {RootStackParamList} from '../types';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import {Ionicon as Icon} from '../utils/IconProvider';
 import {DefaultAvatar} from '../assets';
 import {CommonActions} from '@react-navigation/native';
 
@@ -83,7 +83,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation, route}) => {
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <Ionicons name="log-out-outline" size={22} color="#fff" />
+                <Icon name="log-out-outline" size={22} color="#fff" />
                 <Text style={styles.logoutTopButtonText}>Logout</Text>
               </>
             )}
@@ -123,9 +123,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation, route}) => {
               'Edit Profile feature will be available soon.',
             )
           }>
-          <Ionicons name="person-outline" size={22} color="#4a80f5" />
+          <Icon name="person-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Edit Profile</Text>
-          <Ionicons name="chevron-forward" size={22} color="#ccc" />
+          <Icon name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -136,9 +136,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation, route}) => {
               'Change Password feature will be available soon.',
             )
           }>
-          <Ionicons name="lock-closed-outline" size={22} color="#4a80f5" />
+          <Icon name="lock-closed-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Change Password</Text>
-          <Ionicons name="chevron-forward" size={22} color="#ccc" />
+          <Icon name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -149,9 +149,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation, route}) => {
               'Notifications feature will be available soon.',
             )
           }>
-          <Ionicons name="notifications-outline" size={22} color="#4a80f5" />
+          <Icon name="notifications-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Notifications</Text>
-          <Ionicons name="chevron-forward" size={22} color="#ccc" />
+          <Icon name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
       </View>
 
@@ -166,9 +166,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation, route}) => {
               'For help and support, please contact us at support@kindergartencyprus.com',
             )
           }>
-          <Ionicons name="help-circle-outline" size={22} color="#4a80f5" />
+          <Icon name="help-circle-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Help & FAQ</Text>
-          <Ionicons name="chevron-forward" size={22} color="#ccc" />
+          <Icon name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -179,9 +179,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation, route}) => {
               'Email: support@kindergartencyprus.com\nPhone: +357 99 123456',
             )
           }>
-          <Ionicons name="mail-outline" size={22} color="#4a80f5" />
+          <Icon name="mail-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Contact Us</Text>
-          <Ionicons name="chevron-forward" size={22} color="#ccc" />
+          <Icon name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -192,17 +192,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation, route}) => {
               'Our privacy policy information will be available soon.',
             )
           }>
-          <Ionicons name="document-text-outline" size={22} color="#4a80f5" />
+          <Icon name="document-text-outline" size={22} color="#4a80f5" />
           <Text style={styles.menuItemText}>Privacy Policy</Text>
-          <Ionicons name="chevron-forward" size={22} color="#ccc" />
+          <Icon name="chevron-forward" size={22} color="#ccc" />
         </TouchableOpacity>
 
         {/* Debug option for developers */}
         {debugHandler && (
           <TouchableOpacity style={styles.menuItem} onPress={debugHandler}>
-            <Ionicons name="code-outline" size={22} color="#4a80f5" />
+            <Icon name="code-outline" size={22} color="#4a80f5" />
             <Text style={styles.menuItemText}>Debug Options</Text>
-            <Ionicons name="chevron-forward" size={22} color="#ccc" />
+            <Icon name="chevron-forward" size={22} color="#ccc" />
           </TouchableOpacity>
         )}
       </View>
@@ -215,7 +215,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation, route}) => {
           <ActivityIndicator size="small" color="#fff" />
         ) : (
           <>
-            <Ionicons name="log-out-outline" size={22} color="#fff" />
+            <Icon name="log-out-outline" size={22} color="#fff" />
             <Text style={styles.logoutText}>Logout</Text>
           </>
         )}

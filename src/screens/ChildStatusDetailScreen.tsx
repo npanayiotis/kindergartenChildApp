@@ -14,7 +14,7 @@ import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList, ChildStatus} from '../types';
 import apiService from '../api/apiService';
 import {useAuth} from '../context/AuthContext';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import {Ionicon as Icon} from '../utils/IconProvider';
 
 type ChildStatusDetailsScreenProps = {
   route: RouteProp<RootStackParamList, 'ChildStatusDetails'>;
@@ -155,7 +155,7 @@ const ChildStatusDetailScreen: React.FC<ChildStatusDetailsScreenProps> = ({
         {/* Mood Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="happy-outline" size={24} color="#4a80f5" />
+            <Icon name="happy-outline" size={24} color="#4a80f5" />
             <Text style={styles.sectionTitle}>Mood</Text>
           </View>
 
@@ -176,7 +176,7 @@ const ChildStatusDetailScreen: React.FC<ChildStatusDetailsScreenProps> = ({
         {/* Meal Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="restaurant-outline" size={24} color="#4a80f5" />
+            <Icon name="restaurant-outline" size={24} color="#4a80f5" />
             <Text style={styles.sectionTitle}>Meal</Text>
           </View>
 
@@ -197,7 +197,7 @@ const ChildStatusDetailScreen: React.FC<ChildStatusDetailsScreenProps> = ({
         {/* Nap Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="bed-outline" size={24} color="#4a80f5" />
+            <Icon name="bed-outline" size={24} color="#4a80f5" />
             <Text style={styles.sectionTitle}>Nap</Text>
           </View>
 
@@ -221,7 +221,7 @@ const ChildStatusDetailScreen: React.FC<ChildStatusDetailsScreenProps> = ({
         {/* Notes Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="document-text-outline" size={24} color="#4a80f5" />
+            <Icon name="document-text-outline" size={24} color="#4a80f5" />
             <Text style={styles.sectionTitle}>Notes</Text>
           </View>
 

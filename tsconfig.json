@@ -7,7 +7,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler", // Changed from "node" to "bundler"
     "resolveJsonModule": true,
     "noEmit": true,
     "isolatedModules": true,
@@ -19,6 +19,7 @@
     "paths": {
       "@/*": ["src/*"]
     }
+    // Removed customConditions - not needed for React Native
   },
   "include": ["src/**/*", "App.tsx", "index.js", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx"]

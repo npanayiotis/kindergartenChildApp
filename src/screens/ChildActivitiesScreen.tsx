@@ -1,3 +1,4 @@
+// Enhanced ChildActivitiesScreen with real-time updates and improved child tracking
 import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
@@ -8,29 +9,37 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  ScrollView,
 } from 'react-native';
 import {useAuth} from '../context/AuthContext';
 import apiService from '../api/apiService';
 import {Ionicon as Icon} from '../utils/IconProvider';
-import {ChildActivity, Child} from '../types';
+import {ChildActivity, Child, UnsubscribeFunction} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
 import {CommonActions} from '@react-navigation/native';
 
-type ChildActivitiesScreenProps = {
+type EnhancedChildActivitiesScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'ChildActivities'>;
 };
 
-const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
-  navigation,
-}) => {
-  const [childActivities, setChildActivities] = useState<ChildActivity[]>([]);
+const EnhancedChildActivitiesScreen: React.FC<
+  EnhancedChildActivitiesScreenProps
+> = ({navigation}) => {
   const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [childActivities, setChildActivities] = useState<ChildActivity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [realtimeEnabled, setRealtimeEnabled] = useState<boolean>(false);
+
   const {user, isParent, isKindergarten, logout} = useAuth();
+
+  // Ref to store unsubscribe functions for cleanup
+  const unsubscribeFunctions = React.useRef<UnsubscribeFunction[]>([]);
 
   const formatDate = (dateStr?: string): string => {
     if (!dateStr) return 'No date';
@@ -70,140 +79,210 @@ const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
         return '🎮';
       case 'learning':
         return '📚';
+      case 'outdoor':
+        return '🌳';
+      case 'arts':
+        return '🎨';
       default:
         return '📝';
     }
   };
 
+  // Cleanup function for all listeners
+  const cleanupListeners = useCallback(() => {
+    unsubscribeFunctions.current.forEach(unsubscribe => {
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.warn('Error unsubscribing listener:', error);
+      }
+    });
+    unsubscribeFunctions.current = [];
+  }, []);
+
+  // Load children for the current parent
+  const loadChildren = useCallback(async (): Promise<void> => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('👶 [SCREEN] Loading children for parent');
+      const fetchedChildren = await apiService.children.getAllForParent();
+
+      setChildren(fetchedChildren);
+
+      // Auto-select first child if available
+      if (fetchedChildren.length > 0 && !selectedChild) {
+        setSelectedChild(fetchedChildren[0]);
+      }
+
+      const debugMessages = [
+        `👤 User: ${user.email} (${user.id})`,
+        `👶 Children found: ${fetchedChildren.length}`,
+        ...fetchedChildren.map(
+          (child, index) =>
+            `  Child ${index + 1}: ${child.name} (ID: ${
+              child.id
+            }, Kindergarten: ${child.kindergartenId})`,
+        ),
+      ];
+      setDebugInfo(debugMessages.join('\n'));
+
+      console.log('✅ [SCREEN] Loaded', fetchedChildren.length, 'children');
+    } catch (error) {
+      console.error('❌ [SCREEN] Error loading children:', error);
+      setError('Failed to load children. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user, selectedChild]);
+
+  // Load activities for selected child and date
+  const loadActivities = useCallback(async (): Promise<void> => {
+    if (!selectedChild) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log(
+        '📦 [SCREEN] Loading activities for child:',
+        selectedChild.name,
+      );
+      const activities = await apiService.childActivities.getByChildAndDate(
+        selectedChild.id,
+        selectedDate,
+      );
+
+      setChildActivities(activities);
+      console.log('✅ [SCREEN] Loaded', activities.length, 'activities');
+    } catch (error) {
+      console.error('❌ [SCREEN] Error loading activities:', error);
+      setError('Failed to load activities. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedChild, selectedDate]);
+
+  // Set up real-time listeners
+  const setupRealtimeListeners = useCallback(() => {
+    if (!user || !selectedChild) return;
+
+    cleanupListeners();
+
+    console.log('🔗 [SCREEN] Setting up real-time listeners');
+
+    // 1. Listen to children changes
+    const childrenUnsubscribe = apiService.children.subscribeToChildren(
+      updatedChildren => {
+        console.log(
+          '🔄 [SCREEN] Children updated in real-time:',
+          updatedChildren.length,
+        );
+        setChildren(updatedChildren);
+
+        // Update selected child if it changed
+        if (selectedChild) {
+          const updatedSelectedChild = updatedChildren.find(
+            child => child.id === selectedChild.id,
+          );
+          if (updatedSelectedChild) {
+            setSelectedChild(updatedSelectedChild);
+          }
+        }
+      },
+    );
+
+    // 2. Listen to activities for selected child
+    const activitiesUnsubscribe =
+      apiService.childActivities.subscribeToChildActivities(
+        selectedChild.id,
+        selectedDate,
+        updatedActivities => {
+          console.log(
+            '🔄 [SCREEN] Activities updated in real-time:',
+            updatedActivities.length,
+          );
+          setChildActivities(updatedActivities);
+        },
+      );
+
+    // Store unsubscribe functions for cleanup
+    unsubscribeFunctions.current = [childrenUnsubscribe, activitiesUnsubscribe];
+    setRealtimeEnabled(true);
+  }, [user, selectedChild, selectedDate, cleanupListeners]);
+
+  // Handle logout
   const handleLogout = useCallback(async (): Promise<void> => {
     try {
+      cleanupListeners();
       await logout();
       navigation.dispatch(CommonActions.navigate({name: 'Login'}));
     } catch (error) {
       console.error('Logout error:', error);
       Alert.alert('Error', 'Failed to log out. Please try again.');
     }
-  }, [logout, navigation]);
+  }, [logout, navigation, cleanupListeners]);
 
-  const loadChildActivities = useCallback(async (): Promise<void> => {
-    if (!user) {
-      setLoading(false);
-      setRefreshing(false);
-      setError('User not authenticated. Please log in.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      let activities: ChildActivity[] = [];
-      let debugMessages: string[] = [];
-
-      debugMessages.push(
-        `🔍 Loading activities for user: ${user.email} (${user.id})`,
-      );
-      debugMessages.push(`👤 User role: ${user.role}`);
-
-      if (isParent) {
-        console.log('👨‍👩‍👧‍👦 [SCREEN] Loading activities for parent');
-        debugMessages.push('🔄 Fetching parent activities via reservations...');
-
-        activities = await apiService.childActivities.getAllForParent();
-        debugMessages.push(`📊 Found ${activities.length} activities`);
-
-        try {
-          const childrenList = await apiService.childActivities.getChildren();
-          setChildren(childrenList);
-          debugMessages.push(`👶 Found ${childrenList.length} children`);
-
-          childrenList.forEach((child, index) => {
-            debugMessages.push(
-              `  Child ${index + 1}: ${child.name} (Kindergarten: ${
-                child.kindergartenId
-              })`,
-            );
-          });
-        } catch (childrenError) {
-          console.warn('Could not load children list:', childrenError);
-          debugMessages.push('⚠️ Could not load children list');
-        }
-      } else if (isKindergarten) {
-        console.log('🏫 [SCREEN] Loading activities for kindergarten');
-        debugMessages.push('🔄 Fetching kindergarten activities...');
-
-        activities = await apiService.childActivities.getAllForKindergarten();
-        debugMessages.push(`📊 Found ${activities.length} activities`);
-      }
-
-      console.log('✅ [SCREEN] Loaded', activities.length, 'activities');
-      setChildActivities(activities);
-      setDebugInfo(debugMessages.join('\n'));
-
-      if (activities.length === 0) {
-        if (isParent) {
-          setError(
-            'No child activities found.\n\n' +
-              'This might be because:\n' +
-              "• Your children don't have any activities recorded yet\n" +
-              "• The child name in reservations doesn't match the child name in activities\n" +
-              "• The kindergarten hasn't added any activities yet\n\n" +
-              'Please check the debug information for more details.',
-          );
-        } else {
-          setError('No activities found for your kindergarten.');
-        }
-      }
-    } catch (error) {
-      console.error('❌ [SCREEN] Error loading child activities:', error);
-
-      let errorMessage = 'Failed to load child activities.';
-
-      if (error instanceof Error) {
-        if (error.message.includes('not authenticated')) {
-          errorMessage =
-            'Your session has expired. Please log out and sign in again.';
-        } else if (error.message.includes('permission')) {
-          errorMessage =
-            "You don't have permission to access this data. Please contact support.";
-        } else {
-          errorMessage = `Error: ${error.message}`;
-        }
-      }
-
-      setError(errorMessage);
-
-      if (
-        error instanceof Error &&
-        error.message.includes('not authenticated')
-      ) {
-        Alert.alert(
-          'Authentication Error',
-          'Your session has expired. Please log out and sign in again.',
-          [
-            {text: 'Log Out', onPress: handleLogout},
-            {text: 'Cancel', style: 'cancel'},
-          ],
-        );
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user, isParent, isKindergarten, handleLogout]);
-
+  // Load data on mount and when dependencies change
   useEffect(() => {
     if (user) {
-      loadChildActivities();
-    } else {
-      setLoading(false);
-      setError('Please log in to view child activities.');
+      loadChildren();
     }
-  }, [user, loadChildActivities]);
+  }, [user, loadChildren]);
+
+  useEffect(() => {
+    if (selectedChild) {
+      loadActivities();
+    }
+  }, [selectedChild, selectedDate, loadActivities]);
+
+  // Set up real-time listeners when child or date changes
+  useEffect(() => {
+    if (selectedChild && realtimeEnabled) {
+      setupRealtimeListeners();
+    }
+    return cleanupListeners;
+  }, [
+    selectedChild,
+    selectedDate,
+    realtimeEnabled,
+    setupRealtimeListeners,
+    cleanupListeners,
+  ]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return cleanupListeners;
+  }, [cleanupListeners]);
 
   const onRefresh = (): void => {
     setRefreshing(true);
-    loadChildActivities();
+    loadChildren();
+    if (selectedChild) {
+      loadActivities();
+    }
+  };
+
+  const toggleRealtime = (): void => {
+    if (realtimeEnabled) {
+      cleanupListeners();
+      setRealtimeEnabled(false);
+      Alert.alert(
+        'Real-time Updates',
+        'Real-time updates disabled. Pull to refresh for new data.',
+      );
+    } else {
+      setupRealtimeListeners();
+      Alert.alert(
+        'Real-time Updates',
+        'Real-time updates enabled. Data will update automatically.',
+      );
+    }
   };
 
   const showDebugInfo = (): void => {
@@ -214,50 +293,100 @@ const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
     );
   };
 
-  const renderChildActivityItem = ({item}: {item: ChildActivity}) => {
-    return (
+  const renderChildSelector = () => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.childSelector}
+      contentContainerStyle={styles.childSelectorContent}>
+      {children.map(child => (
+        <TouchableOpacity
+          key={child.id}
+          style={[
+            styles.childChip,
+            selectedChild?.id === child.id && styles.childChipSelected,
+          ]}
+          onPress={() => setSelectedChild(child)}>
+          <Text
+            style={[
+              styles.childChipText,
+              selectedChild?.id === child.id && styles.childChipTextSelected,
+            ]}>
+            {child.name}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+
+  const renderDateSelector = () => (
+    <View style={styles.dateSelector}>
       <TouchableOpacity
-        style={styles.card}
+        style={styles.dateButton}
         onPress={() => {
-          Alert.alert(
-            'Activity Details',
-            `Child: ${item.childName}\nType: ${item.type} - ${
-              item.subtype
-            }\nDetails: ${item.details}\nTime: ${formatDate(item.timestamp)}`,
-          );
+          const yesterday = new Date(selectedDate);
+          yesterday.setDate(yesterday.getDate() - 1);
+          setSelectedDate(yesterday);
         }}>
-        <View style={styles.cardHeader}>
-          <View style={styles.activityHeader}>
-            <Text style={styles.activityIcon}>
-              {getActivityIcon(item.type, item.subtype)}
-            </Text>
-            <View style={styles.activityInfo}>
-              <Text style={styles.childName}>{item.childName}</Text>
-              <Text style={styles.activityType}>
-                {item.type} - {item.subtype}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.date}>{formatDate(item.timestamp)}</Text>
-        </View>
-
-        {item.details ? (
-          <View style={styles.detailsContainer}>
-            <Text style={styles.details}>{item.details}</Text>
-          </View>
-        ) : null}
-
-        <View style={styles.metaContainer}>
-          <Text style={styles.metaText}>Created by kindergarten staff</Text>
-        </View>
+        <Text style={styles.dateButtonText}>◀</Text>
       </TouchableOpacity>
-    );
-  };
+
+      <Text style={styles.selectedDateText}>
+        {selectedDate.toLocaleDateString()}
+      </Text>
+
+      <TouchableOpacity
+        style={styles.dateButton}
+        onPress={() => {
+          const tomorrow = new Date(selectedDate);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          if (tomorrow <= new Date()) {
+            // Don't allow future dates
+            setSelectedDate(tomorrow);
+          }
+        }}>
+        <Text style={styles.dateButtonText}>▶</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderActivityItem = ({item}: {item: ChildActivity}) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => {
+        Alert.alert(
+          'Activity Details',
+          `Child: ${item.childName}\nType: ${item.type} - ${
+            item.subtype
+          }\nDetails: ${item.details}\nTime: ${formatDate(item.timestamp)}`,
+        );
+      }}>
+      <View style={styles.cardHeader}>
+        <View style={styles.activityHeader}>
+          <Text style={styles.activityIcon}>
+            {getActivityIcon(item.type, item.subtype)}
+          </Text>
+          <View style={styles.activityInfo}>
+            <Text style={styles.activityType}>
+              {item.type} - {item.subtype}
+            </Text>
+            <Text style={styles.timestamp}>{formatDate(item.timestamp)}</Text>
+          </View>
+        </View>
+      </View>
+
+      {item.details ? (
+        <View style={styles.detailsContainer}>
+          <Text style={styles.details}>{item.details}</Text>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
 
   const renderLoadingScreen = () => (
     <View style={styles.loadingContainer}>
       <ActivityIndicator size="large" color="#4a80f5" />
-      <Text style={styles.loadingText}>Loading activities...</Text>
+      <Text style={styles.loadingText}>Loading...</Text>
     </View>
   );
 
@@ -265,16 +394,8 @@ const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
     <View style={styles.errorContainer}>
       <Icon name="alert-circle-outline" size={50} color="#f44336" />
       <Text style={styles.errorText}>{error}</Text>
-      <TouchableOpacity
-        style={styles.retryButton}
-        onPress={loadChildActivities}>
+      <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
         <Text style={styles.retryButtonText}>Try Again</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.debugFullButton} onPress={showDebugInfo}>
-        <Text style={styles.debugFullButtonText}>Debug Info</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.logoutFullButton} onPress={handleLogout}>
-        <Text style={styles.logoutFullButtonText}>Log Out</Text>
       </TouchableOpacity>
     </View>
   );
@@ -282,15 +403,15 @@ const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
   const renderEmptyScreen = () => (
     <View style={styles.emptyContainer}>
       <Icon name="information-circle-outline" size={50} color="#ccc" />
-      <Text style={styles.emptyText}>No activities found</Text>
-      <Text style={styles.emptySubText}>
-        {isParent
-          ? "Your child's activities will appear here when the kindergarten adds them."
-          : 'Child activities for your kindergarten will appear here.'}
+      <Text style={styles.emptyText}>
+        {children.length === 0
+          ? 'No children found'
+          : selectedChild
+          ? `No activities found for ${
+              selectedChild.name
+            } on ${selectedDate.toLocaleDateString()}`
+          : 'Select a child to view activities'}
       </Text>
-      <TouchableOpacity style={styles.debugFullButton} onPress={showDebugInfo}>
-        <Text style={styles.debugFullButtonText}>Debug Info</Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -298,32 +419,26 @@ const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>
-            {isParent ? 'Child Activities' : 'All Activities'}
+          <Text style={styles.title}>Child Activities (Enhanced)</Text>
+          <Text style={styles.subtitle}>
+            {children.length} child{children.length !== 1 ? 'ren' : ''} •
+            {realtimeEnabled ? ' Live Updates' : ' Manual Refresh'}
           </Text>
-          {children.length > 0 ? (
-            <Text style={styles.subtitle}>
-              {children.length} child{children.length > 1 ? 'ren' : ''} enrolled
-            </Text>
-          ) : null}
         </View>
         <View style={styles.headerButtons}>
-          <TouchableOpacity style={styles.debugButton} onPress={showDebugInfo}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={toggleRealtime}>
+            <Icon
+              name={realtimeEnabled ? 'pause' : 'play'}
+              size={20}
+              color="#fff"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton} onPress={showDebugInfo}>
             <Icon name="information-circle-outline" size={20} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={() => {
-              Alert.alert(
-                'Logout',
-                'Are you sure you want to log out?',
-                [
-                  {text: 'Cancel', style: 'cancel'},
-                  {text: 'Logout', onPress: handleLogout},
-                ],
-                {cancelable: true},
-              );
-            }}>
+          <TouchableOpacity style={styles.headerButton} onPress={handleLogout}>
             <Icon name="log-out-outline" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -333,18 +448,24 @@ const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
         renderLoadingScreen()
       ) : error ? (
         renderErrorScreen()
-      ) : childActivities.length === 0 ? (
+      ) : children.length === 0 ? (
         renderEmptyScreen()
       ) : (
-        <FlatList
-          data={childActivities}
-          keyExtractor={item => item.id}
-          renderItem={renderChildActivityItem}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        />
+        <>
+          {renderChildSelector()}
+          {selectedChild && renderDateSelector()}
+
+          <FlatList
+            data={childActivities}
+            keyExtractor={item => item.id}
+            renderItem={renderActivityItem}
+            contentContainerStyle={styles.list}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={renderEmptyScreen}
+          />
+        </>
       )}
     </View>
   );
@@ -375,7 +496,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#e0e0ff',
     marginTop: 2,
   },
@@ -383,12 +504,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  debugButton: {
+  headerButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     padding: 8,
     borderRadius: 8,
     marginTop: 10,
-    marginRight: 8,
+    marginLeft: 8,
+  },
+  childSelector: {
+    backgroundColor: '#fff',
+    paddingVertical: 15,
+  },
+  childSelectorContent: {
+    paddingHorizontal: 20,
+  },
+  childChip: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  childChipSelected: {
+    backgroundColor: '#4a80f5',
+  },
+  childChipText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  childChipTextSelected: {
+    color: '#fff',
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  dateButton: {
+    padding: 10,
+  },
+  dateButtonText: {
+    fontSize: 18,
+    color: '#4a80f5',
+    fontWeight: 'bold',
+  },
+  selectedDateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginHorizontal: 20,
+    minWidth: 120,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -425,34 +596,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-  debugFullButton: {
-    backgroundColor: '#ff9800',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  debugFullButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  logoutButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 8,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  logoutFullButton: {
-    backgroundColor: '#f44336',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 15,
-  },
-  logoutFullButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
   list: {
     padding: 16,
   },
@@ -485,41 +628,25 @@ const styles = StyleSheet.create({
   activityInfo: {
     flex: 1,
   },
-  childName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
   activityType: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#4a80f5',
-    fontWeight: '500',
-    marginTop: 2,
+    fontWeight: '600',
   },
-  date: {
+  timestamp: {
     fontSize: 12,
     color: '#888',
+    marginTop: 2,
   },
   detailsContainer: {
     backgroundColor: '#f5f7fa',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 8,
   },
   details: {
     fontSize: 14,
     color: '#555',
     lineHeight: 20,
-  },
-  metaContainer: {
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 8,
-  },
-  metaText: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
   },
   emptyContainer: {
     flex: 1,
@@ -528,21 +655,12 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#555',
-    marginTop: 15,
-    marginBottom: 5,
-    textAlign: 'center',
-  },
-  emptySubText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#888',
     textAlign: 'center',
-    maxWidth: '80%',
-    lineHeight: 20,
-    marginBottom: 20,
+    marginTop: 15,
+    lineHeight: 22,
   },
 });
 
-export default ChildActivitiesScreen;
+export default EnhancedChildActivitiesScreen;

@@ -1,32 +1,112 @@
-// Enhanced API service with improved child tracking
+// REST API Service for Mobile App - FIXED TypeScript Errors
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {ChildActivity, BlogPost, User, ChildStatus, Child} from '../types';
+import {ChildActivity, BlogPost, User, Child} from '../types';
 import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import {API_CONFIG, buildApiUrl, buildQueryParams} from '../config/api';
 
-console.log('🔥 API Service initializing with improved child tracking...');
+console.log('🌐 REST API Service initializing...');
+
+// Use configuration from config file
+const {BASE_URL, ENDPOINTS, REQUEST, POLLING, DEFAULT_HEADERS} = API_CONFIG;
+
+// Helper function to get Firebase ID token
+const getAuthToken = async (): Promise<string> => {
+  const currentUser = auth().currentUser;
+  if (!currentUser) {
+    throw new Error('User not authenticated');
+  }
+
+  try {
+    // Get fresh ID token (Firebase handles caching automatically)
+    const token = await currentUser.getIdToken(false); // false = use cached token if valid
+    console.log('🔑 [API] Retrieved Firebase ID token');
+    return token;
+  } catch (error) {
+    console.error('❌ [API] Failed to get ID token:', error);
+    throw new Error('Failed to retrieve authentication token');
+  }
+};
+
+// Helper function to make authenticated API requests with retry logic
+const makeAuthenticatedRequest = async (
+  endpoint: string,
+  options: RequestInit = {},
+  retryCount: number = 0,
+): Promise<Response> => {
+  try {
+    const token = await getAuthToken();
+
+    const requestHeaders = {
+      ...DEFAULT_HEADERS,
+      Authorization: `Bearer ${token}`,
+      ...options.headers,
+    };
+
+    const requestOptions: RequestInit = {
+      ...options,
+      headers: requestHeaders,
+    };
+
+    const url = buildApiUrl(endpoint);
+    console.log(`📡 [API] Making request to: ${url}`);
+
+    const response = await fetch(url, requestOptions);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        `❌ [API] Request failed: ${response.status} ${response.statusText}`,
+        errorText,
+      );
+
+      // Handle specific status codes
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please log in again.');
+      } else if (response.status === 403) {
+        throw new Error('Access denied. Check your permissions.');
+      } else if (response.status === 404) {
+        throw new Error('Resource not found.');
+      } else if (response.status >= 500) {
+        throw new Error('Server error. Please try again later.');
+      }
+
+      throw new Error(
+        `API request failed: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return response;
+  } catch (error) {
+    console.error(`❌ [API] Request error (attempt ${retryCount + 1}):`, error);
+
+    // Retry logic for network errors (fixed TypeScript error)
+    if (
+      retryCount < REQUEST.RETRY_ATTEMPTS &&
+      (error instanceof TypeError ||
+        (error instanceof Error && error.message.includes('timeout')))
+    ) {
+      console.log(
+        `🔄 [API] Retrying request... (${retryCount + 1}/${
+          REQUEST.RETRY_ATTEMPTS
+        })`,
+      );
+      await new Promise(resolve =>
+        setTimeout(resolve, REQUEST.RETRY_DELAY * (retryCount + 1)),
+      );
+      return makeAuthenticatedRequest(endpoint, options, retryCount + 1);
+    }
+
+    throw error;
+  }
+};
 
 // Helper function to convert Firebase user to our User type
 const convertFirebaseUser = async (fbUser: any): Promise<User> => {
-  let role: 'parent' | 'kindergarten' | 'admin' = 'parent';
-
-  try {
-    const userDoc = await firestore().collection('users').doc(fbUser.uid).get();
-    if (userDoc.exists) {
-      const userData = userDoc.data();
-      if (userData?.role) {
-        role = userData.role as 'parent' | 'kindergarten' | 'admin';
-      }
-    }
-  } catch (error) {
-    console.warn('[API] Could not fetch user role from Firestore:', error);
-  }
-
   return {
     id: fbUser.uid,
     email: fbUser.email || '',
-    name: fbUser.displayName || fbUser.name || 'User',
-    role: role,
+    name: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
+    role: 'parent', // Default role, you can fetch this from your API
     profileImage: fbUser.photoURL || undefined,
   };
 };
@@ -36,8 +116,10 @@ interface AuthResponse {
   user: User;
 }
 
-const apiService = {
-  auth: {
+// Main API Service Class
+class RestApiService {
+  // Authentication methods
+  auth = {
     login: async (email: string, password: string): Promise<AuthResponse> => {
       try {
         console.log('🔐 [API] Attempting Firebase sign in with:', email);
@@ -52,7 +134,9 @@ const apiService = {
 
         const user = await convertFirebaseUser(userCredential.user);
         await AsyncStorage.setItem('user_data', JSON.stringify(user));
-        const token = 'firebase-token-' + Date.now();
+
+        // Get Firebase ID token for immediate use
+        const token = await userCredential.user.getIdToken();
         await AsyncStorage.setItem('auth_token', token);
 
         console.log('✅ [API] Login completed successfully for:', user.email);
@@ -75,11 +159,11 @@ const apiService = {
         throw error;
       }
     },
-  },
+  };
 
-  // NEW: Children management
-  children: {
-    // Get all children for the current parent using direct parent-child relationship
+  // Children management using REST API
+  children = {
+    // Get all children for the current parent from REST API
     getAllForParent: async (): Promise<Child[]> => {
       const currentUser = auth().currentUser;
       if (!currentUser) {
@@ -87,144 +171,86 @@ const apiService = {
       }
 
       try {
-        console.log('👶 [API] Fetching children for parent:', currentUser.uid);
+        console.log(
+          '👶 [API] Fetching children for parent from REST API:',
+          currentUser.email,
+        );
 
-        // Query children collection directly by parentId
-        const childrenSnapshot = await firestore()
-          .collection('children')
-          .where('parentId', '==', currentUser.uid)
-          .get();
+        const response = await makeAuthenticatedRequest(
+          ENDPOINTS.PARENT_CHILDREN,
+          {
+            method: 'GET',
+          },
+        );
 
-        if (childrenSnapshot.empty) {
-          console.log('ℹ️ [API] No children found in children collection');
+        const data = await response.json();
 
-          // FALLBACK: Try the old reservation-based approach for backward compatibility
-          console.log('🔄 [API] Falling back to reservations approach...');
-          return await this.getChildrenFromReservations();
-        }
+        // Assuming your API returns an array of children or {children: [...]}
+        const children: Child[] = Array.isArray(data)
+          ? data
+          : data.children || [];
 
-        const children = childrenSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data?.name || '',
-            kindergartenId: data?.kindergartenId || '',
-            userId: data?.parentId || currentUser.uid,
-            dateOfBirth: data?.dateOfBirth || undefined,
-            createdAt:
-              data?.createdAt?.toDate?.()?.toISOString() ||
-              new Date().toISOString(),
-            updatedAt:
-              data?.updatedAt?.toDate?.()?.toISOString() ||
-              new Date().toISOString(),
-          };
-        });
+        // Map the API response to our Child interface
+        const mappedChildren: Child[] = children.map((child: any) => ({
+          id: child.id || child._id || '', // Handle different ID formats
+          name: child.name || child.childName || '',
+          kindergartenId: child.kindergartenId || child.kindergarten_id || '',
+          userId:
+            child.userId || child.parentId || child.user_id || currentUser.uid,
+          dateOfBirth: child.dateOfBirth || child.date_of_birth,
+          profileImage: child.profileImage || child.profile_image,
+          medicalInfo: child.medicalInfo || child.medical_info,
+          emergencyContact: child.emergencyContact || child.emergency_contact,
+          createdAt:
+            child.createdAt || child.created_at || new Date().toISOString(),
+          updatedAt:
+            child.updatedAt || child.updated_at || new Date().toISOString(),
+        }));
 
         console.log(
           '✅ [API] Found',
-          children.length,
-          'children via children collection',
+          mappedChildren.length,
+          'children via REST API',
         );
-        return children;
+        return mappedChildren;
       } catch (error) {
-        console.error('❌ [API] Error fetching children:', error);
+        console.error('❌ [API] Error fetching children from REST API:', error);
         throw error;
       }
     },
 
-    // FALLBACK: Get children from reservations (backward compatibility)
-    getChildrenFromReservations: async (): Promise<Child[]> => {
-      const currentUser = auth().currentUser;
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
-
-      try {
-        console.log('🔄 [API] Using reservations fallback for children');
-
-        const reservationsSnapshot = await firestore()
-          .collection('reservations')
-          .where('userId', '==', currentUser.uid)
-          .get();
-
-        if (reservationsSnapshot.empty) {
-          return [];
-        }
-
-        const children: Child[] = [];
-        reservationsSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.childName) {
-            children.push({
-              id: doc.id, // Use reservation ID as child ID
-              name: data.childName,
-              kindergartenId: data.kindergartenId || '',
-              userId: currentUser.uid,
-            });
-          }
-        });
-
-        console.log(
-          '✅ [API] Found',
-          children.length,
-          'children via reservations fallback',
-        );
-        return children;
-      } catch (error) {
-        console.error('❌ [API] Error in reservations fallback:', error);
-        throw error;
-      }
-    },
-
-    // Set up real-time listener for children
+    // Set up polling for real-time updates (since REST doesn't support real-time by default)
     subscribeToChildren: (onChildrenUpdate: (children: Child[]) => void) => {
-      const currentUser = auth().currentUser;
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
+      console.log('🔗 [API] Setting up children polling (REST API)');
 
-      console.log('🔗 [API] Setting up real-time children listener');
+      let pollInterval: ReturnType<typeof setInterval>; // Fixed TypeScript error
 
-      const unsubscribe = firestore()
-        .collection('children')
-        .where('parentId', '==', currentUser.uid)
-        .onSnapshot(
-          snapshot => {
-            const children = snapshot.docs.map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                name: data?.name || '',
-                kindergartenId: data?.kindergartenId || '',
-                userId: data?.parentId || currentUser.uid,
-                dateOfBirth: data?.dateOfBirth || undefined,
-                createdAt:
-                  data?.createdAt?.toDate?.()?.toISOString() ||
-                  new Date().toISOString(),
-                updatedAt:
-                  data?.updatedAt?.toDate?.()?.toISOString() ||
-                  new Date().toISOString(),
-              };
-            });
+      const poll = async () => {
+        try {
+          const children = await this.children.getAllForParent();
+          onChildrenUpdate(children);
+        } catch (error) {
+          console.error('❌ [API] Error polling children:', error);
+        }
+      };
 
-            console.log(
-              '🔄 [API] Children updated via listener:',
-              children.length,
-            );
-            onChildrenUpdate(children);
-          },
-          error => {
-            console.error('❌ [API] Children listener error:', error);
-          },
-        );
+      // Initial fetch
+      poll();
 
-      return unsubscribe;
+      // Poll every 30 seconds for updates
+      pollInterval = setInterval(poll, POLLING.CHILDREN);
+
+      // Return unsubscribe function
+      return () => {
+        console.log('🔌 [API] Stopping children polling');
+        clearInterval(pollInterval);
+      };
     },
-  },
+  };
 
-  // ENHANCED: Child Activities with improved approach
-  childActivities: {
-    // Get activities using childId instead of childName
+  // Child Activities using REST API
+  childActivities = {
+    // Get all activities for parent from REST API
     getAllForParent: async (): Promise<ChildActivity[]> => {
       const currentUser = auth().currentUser;
       if (!currentUser) {
@@ -233,185 +259,109 @@ const apiService = {
 
       try {
         console.log(
-          '📦 [API] Fetching child activities for parent (improved):',
-          currentUser.uid,
+          '📦 [API] Fetching all child activities for parent from REST API',
         );
 
-        // STEP 1: Get children for this parent
-        const children = await apiService.children.getAllForParent();
+        // Get children first
+        const children = await this.children.getAllForParent();
 
         if (children.length === 0) {
           console.log('ℹ️ [API] No children found for parent');
           return [];
         }
 
-        const childIds = children.map(child => child.id);
-        console.log('👶 [API] Found children with IDs:', childIds);
+        // Fetch activities for each child (last 7 days)
+        let allActivities: ChildActivity[] = [];
 
-        // STEP 2: Query activities by childId (more reliable than childName)
-        let activities: ChildActivity[] = [];
-
-        // Handle Firebase 'in' query limit of 10 items
-        const batchSize = 10;
-        for (let i = 0; i < childIds.length; i += batchSize) {
-          const batch = childIds.slice(i, i + batchSize);
-
-          console.log(
-            `🔍 [API] Querying activities for child IDs batch:`,
-            batch,
-          );
-
-          const activitiesSnapshot = await firestore()
-            .collection('childActivities')
-            .where('childId', 'in', batch)
-            .where('deleted', '==', false)
-            .orderBy('timestamp', 'desc')
-            .limit(100)
-            .get();
-
-          const batchActivities = activitiesSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              childId: data?.childId || '',
-              childName: data?.childName || '',
-              type: data?.type || '',
-              subtype: data?.subtype || '',
-              timestamp:
-                data?.timestamp?.toDate?.()?.toISOString() ||
-                new Date().toISOString(),
-              details: data?.details || '',
-              createdBy: data?.createdBy || '',
-              kindergartenId: data?.kindergartenId || '',
-              deleted: !!data?.deleted,
-            };
-          });
-
-          activities = activities.concat(batchActivities);
+        for (const child of children) {
+          try {
+            const childActivities =
+              await this.childActivities.getByChildAndDate(
+                child.id,
+                new Date(), // Today
+              );
+            allActivities = allActivities.concat(childActivities);
+          } catch (error) {
+            console.warn(
+              `⚠️ [API] Failed to fetch activities for child ${child.name}:`,
+              error,
+            );
+          }
         }
 
-        // FALLBACK: If no activities found by childId, try childName approach
-        if (activities.length === 0) {
-          console.log(
-            '🔄 [API] No activities found by childId, trying childName fallback...',
-          );
-          activities = await this.getAllForParentByName();
-        }
-
-        // Sort all activities by timestamp
-        activities.sort(
+        // Sort by timestamp
+        allActivities.sort(
           (a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
         );
 
-        console.log('✅ [API] Found', activities.length, 'activities total');
-        return activities.slice(0, 100); // Limit results
+        console.log('✅ [API] Found', allActivities.length, 'total activities');
+        return allActivities;
       } catch (error) {
-        console.error(
-          '❌ [API] Error fetching child activities (improved):',
-          error,
-        );
+        console.error('❌ [API] Error fetching all child activities:', error);
         throw error;
       }
     },
 
-    // FALLBACK: Original childName-based approach for backward compatibility
-    getAllForParentByName: async (): Promise<ChildActivity[]> => {
-      const currentUser = auth().currentUser;
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
-
-      try {
-        console.log('🔄 [API] Using childName fallback approach');
-
-        // Get children and extract names
-        const children = await apiService.children.getAllForParent();
-        const childNames = children
-          .map(child => child.name)
-          .filter(name => name.trim());
-
-        if (childNames.length === 0) {
-          return [];
-        }
-
-        // Query by childName (original approach)
-        const activitiesSnapshot = await firestore()
-          .collection('childActivities')
-          .where('childName', 'in', childNames.slice(0, 10))
-          .where('deleted', '==', false)
-          .orderBy('timestamp', 'desc')
-          .limit(100)
-          .get();
-
-        return activitiesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            childId: data?.childId || '',
-            childName: data?.childName || '',
-            type: data?.type || '',
-            subtype: data?.subtype || '',
-            timestamp:
-              data?.timestamp?.toDate?.()?.toISOString() ||
-              new Date().toISOString(),
-            details: data?.details || '',
-            createdBy: data?.createdBy || '',
-            kindergartenId: data?.kindergartenId || '',
-            deleted: !!data?.deleted,
-          };
-        });
-      } catch (error) {
-        console.error('❌ [API] Error in childName fallback:', error);
-        throw error;
-      }
-    },
-
-    // Get activities for a specific child by ID with date filtering
+    // Get activities for a specific child by date from REST API
     getByChildAndDate: async (
       childId: string,
       date: Date,
     ): Promise<ChildActivity[]> => {
       try {
+        const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const endpoint = `${
+          ENDPOINTS.PARENT_ACTIVITIES
+        }/${childId}${buildQueryParams({date: dateString})}`;
+
         console.log(
           '📦 [API] Fetching activities for child:',
           childId,
           'on date:',
-          date,
+          dateString,
         );
 
-        const startOfDay = new Date(date);
-        startOfDay.setHours(0, 0, 0, 0);
-
-        const endOfDay = new Date(date);
-        endOfDay.setHours(23, 59, 59, 999);
-
-        const activitiesSnapshot = await firestore()
-          .collection('childActivities')
-          .where('childId', '==', childId)
-          .where('timestamp', '>=', startOfDay)
-          .where('timestamp', '<=', endOfDay)
-          .where('deleted', '==', false)
-          .orderBy('timestamp', 'desc')
-          .get();
-
-        return activitiesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            childId: data?.childId || '',
-            childName: data?.childName || '',
-            type: data?.type || '',
-            subtype: data?.subtype || '',
-            timestamp:
-              data?.timestamp?.toDate?.()?.toISOString() ||
-              new Date().toISOString(),
-            details: data?.details || '',
-            createdBy: data?.createdBy || '',
-            kindergartenId: data?.kindergartenId || '',
-            deleted: !!data?.deleted,
-          };
+        const response = await makeAuthenticatedRequest(endpoint, {
+          method: 'GET',
         });
+
+        const data = await response.json();
+
+        // Assuming your API returns an array of activities or {activities: [...]}
+        const activities: any[] = Array.isArray(data)
+          ? data
+          : data.activities || [];
+
+        // Map the API response to our ChildActivity interface
+        const mappedActivities: ChildActivity[] = activities.map(
+          (activity: any) => ({
+            id: activity.id || activity._id || '',
+            childId: activity.childId || activity.child_id || childId,
+            childName: activity.childName || activity.child_name || '',
+            type: activity.type || '',
+            subtype: activity.subtype || activity.sub_type || '',
+            timestamp:
+              activity.timestamp ||
+              activity.created_at ||
+              new Date().toISOString(),
+            details: activity.details || activity.description || '',
+            createdBy: activity.createdBy || activity.created_by || '',
+            kindergartenId:
+              activity.kindergartenId || activity.kindergarten_id || '',
+            deleted: activity.deleted || false,
+            mood: activity.mood,
+            photos: activity.photos || [],
+            duration: activity.duration,
+            quantity: activity.quantity,
+          }),
+        );
+
+        console.log(
+          '✅ [API] Found',
+          mappedActivities.length,
+          'activities for child',
+        );
+        return mappedActivities;
       } catch (error) {
         console.error(
           '❌ [API] Error fetching child activities by date:',
@@ -421,172 +371,162 @@ const apiService = {
       }
     },
 
-    // Real-time listener for child activities
+    // Set up polling for real-time activity updates
     subscribeToChildActivities: (
       childId: string,
       date: Date,
       onActivitiesUpdate: (activities: ChildActivity[]) => void,
     ) => {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
+      console.log('🔗 [API] Setting up activity polling for child:', childId);
 
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+      let pollInterval: ReturnType<typeof setInterval>; // Fixed TypeScript error
 
-      console.log('🔗 [API] Setting up real-time listener for child:', childId);
+      const poll = async () => {
+        try {
+          const activities = await this.childActivities.getByChildAndDate(
+            childId,
+            date,
+          );
+          onActivitiesUpdate(activities);
+        } catch (error) {
+          console.error('❌ [API] Error polling activities:', error);
+        }
+      };
 
-      const unsubscribe = firestore()
-        .collection('childActivities')
-        .where('childId', '==', childId)
-        .where('timestamp', '>=', startOfDay)
-        .where('timestamp', '<=', endOfDay)
-        .where('deleted', '==', false)
-        .orderBy('timestamp', 'desc')
-        .onSnapshot(
-          snapshot => {
-            const activities = snapshot.docs.map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                childId: data?.childId || '',
-                childName: data?.childName || '',
-                type: data?.type || '',
-                subtype: data?.subtype || '',
-                timestamp:
-                  data?.timestamp?.toDate?.()?.toISOString() ||
-                  new Date().toISOString(),
-                details: data?.details || '',
-                createdBy: data?.createdBy || '',
-                kindergartenId: data?.kindergartenId || '',
-                deleted: !!data?.deleted,
-              };
-            });
+      // Initial fetch
+      poll();
 
-            console.log(
-              '🔄 [API] Activities updated via listener:',
-              activities.length,
-            );
-            onActivitiesUpdate(activities);
-          },
-          error => {
-            console.error('❌ [API] Activities listener error:', error);
-          },
-        );
+      // Poll every 15 seconds for activity updates
+      pollInterval = setInterval(poll, POLLING.ACTIVITIES);
 
-      return unsubscribe;
+      // Return unsubscribe function
+      return () => {
+        console.log('🔌 [API] Stopping activity polling');
+        clearInterval(pollInterval);
+      };
     },
 
-    // For kindergarten users
+    // For kindergarten users (if needed)
     getAllForKindergarten: async (): Promise<ChildActivity[]> => {
-      const currentUser = auth().currentUser;
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
-
-      try {
-        console.log(
-          '📦 [API] Fetching child activities for kindergarten:',
-          currentUser.uid,
-        );
-
-        const activitiesSnapshot = await firestore()
-          .collection('childActivities')
-          .where('kindergartenId', '==', currentUser.uid)
-          .where('deleted', '==', false)
-          .orderBy('timestamp', 'desc')
-          .limit(100)
-          .get();
-
-        return activitiesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            childId: data?.childId || '',
-            childName: data?.childName || '',
-            type: data?.type || '',
-            subtype: data?.subtype || '',
-            timestamp:
-              data?.timestamp?.toDate?.()?.toISOString() ||
-              new Date().toISOString(),
-            details: data?.details || '',
-            createdBy: data?.createdBy || '',
-            kindergartenId: data?.kindergartenId || '',
-            deleted: !!data?.deleted,
-          };
-        });
-      } catch (error) {
-        console.error(
-          '❌ [API] Error fetching activities for kindergarten:',
-          error,
-        );
-        throw error;
-      }
+      // This would require a different endpoint for kindergarten users
+      // Implement based on your API structure
+      throw new Error(
+        'Not implemented - contact API team for kindergarten endpoint',
+      );
     },
 
-    // DEPRECATED: Use children.getAllForParent() instead
+    // Backward compatibility
     getChildren: async (): Promise<
       Array<{id: string; name: string; kindergartenId: string}>
     > => {
       console.warn(
         '⚠️ [API] getChildren() is deprecated. Use children.getAllForParent() instead.',
       );
-      const children = await apiService.children.getAllForParent();
+      const children = await this.children.getAllForParent();
       return children.map(child => ({
         id: child.id,
         name: child.name,
         kindergartenId: child.kindergartenId,
       }));
     },
-  },
+  };
 
   // Legacy childStatus endpoints (backward compatibility)
-  childStatus: {
-    getAll: async (): Promise<ChildStatus[]> => {
-      const activities = await apiService.childActivities.getAllForParent();
-      // Convert activities to legacy format...
-      const statusMap = new Map<string, ChildStatus>();
-      // ... (rest of conversion logic remains the same)
-      return Array.from(statusMap.values());
+  childStatus = {
+    getAll: async (): Promise<any[]> => {
+      // Redirect to new activities endpoint
+      const activities = await this.childActivities.getAllForParent();
+      return activities; // Return activities as-is for backward compatibility
     },
 
-    getAllForKindergarten: async (): Promise<ChildStatus[]> => {
-      const activities =
-        await apiService.childActivities.getAllForKindergarten();
-      // Convert activities to legacy format...
-      const statusMap = new Map<string, ChildStatus>();
-      // ... (rest of conversion logic remains the same)
-      return Array.from(statusMap.values());
+    getAllForKindergarten: async (): Promise<any[]> => {
+      const activities = await this.childActivities.getAllForKindergarten();
+      return activities;
     },
-  },
+  };
 
-  // Blog posts (unchanged)
-  blog: {
+  // Blog posts (REST API)
+  blog = {
     getAll: async (
       page: number = 1,
       pageSize: number = 10,
       kindergartenId: string | null = null,
     ) => {
-      // ... existing blog implementation
       try {
-        console.log('📰 [API] Fetching blog posts');
-        let query = firestore().collection('blog');
-        if (kindergartenId) {
-          query = query.where('kindergartenId', '==', kindergartenId);
-        }
-        const snapshot = await query.orderBy('createdAt', 'desc').get();
-        // ... rest of blog logic
-        return {posts: [], total: 0, page, pageSize}; // Placeholder
+        console.log('📰 [API] Fetching blog posts from REST API');
+
+        const queryParams = buildQueryParams({
+          page,
+          pageSize,
+          ...(kindergartenId && {kindergartenId}),
+        });
+
+        const response = await makeAuthenticatedRequest(
+          `${ENDPOINTS.BLOG}${queryParams}`,
+          {
+            method: 'GET',
+          },
+        );
+
+        const data = await response.json();
+
+        return {
+          posts: data.posts || [],
+          total: data.total || 0,
+          page: data.page || page,
+          pageSize: data.pageSize || pageSize,
+        };
       } catch (error) {
         console.error('❌ [API] Error fetching blog posts:', error);
         throw error;
       }
     },
 
-    getById: async (id: string) => {
-      // ... existing implementation
-      return {} as BlogPost; // Placeholder
+    getById: async (id: string): Promise<BlogPost> => {
+      try {
+        const response = await makeAuthenticatedRequest(
+          `${ENDPOINTS.BLOG}/${id}`,
+          {
+            method: 'GET',
+          },
+        );
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('❌ [API] Error fetching blog post:', error);
+        throw error;
+      }
     },
-  },
+  };
+
+  // Utility method to test API connection
+  testConnection = async (): Promise<boolean> => {
+    try {
+      console.log('🔧 [API] Testing REST API connection...');
+
+      // Try to fetch children as a connectivity test
+      await this.children.getAllForParent();
+
+      console.log('✅ [API] REST API connection successful');
+      return true;
+    } catch (error) {
+      console.error('❌ [API] REST API connection failed:', error);
+      return false;
+    }
+  };
+}
+
+// Create and export a single instance
+const apiService = new RestApiService();
+export default apiService;
+
+// Export configuration for easy updates
+export const API_CONFIG_EXPORT = {
+  BASE_URL,
+  ENDPOINTS,
+  POLLING_INTERVALS: POLLING,
 };
 
-export default apiService;
+// Export types for convenience
+export type {Child, ChildActivity, User, BlogPost};

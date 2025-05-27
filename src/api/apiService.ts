@@ -1,6 +1,6 @@
 // Fixed API service for React Native Firebase - Updated for Child Activities
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {ChildActivity, BlogPost, User} from '../types';
+import {ChildActivity, BlogPost, User, ChildStatus} from '../types';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 
@@ -93,7 +93,7 @@ const apiService = {
     },
   },
 
-  // Child Activities endpoints - UPDATED FOR YOUR FIREBASE STRUCTURE
+  // Child Activities endpoints - FIXED FOR RESERVATIONS STRUCTURE
   childActivities: {
     // Get all activities for children associated with the current parent
     getAllForParent: async (): Promise<ChildActivity[]> => {
@@ -109,58 +109,118 @@ const apiService = {
           currentUser.uid,
         );
 
-        // First, get all children for this parent from reservations or children collection
-        const childrenSnapshot = await firestore()
-          .collection('children')
+        // STEP 1: Find reservations for this parent
+        console.log('🔍 [API] Looking for reservations for parent...');
+        const reservationsSnapshot = await firestore()
+          .collection('reservations')
           .where('userId', '==', currentUser.uid)
           .get();
 
-        if (childrenSnapshot.empty) {
-          console.log('ℹ️ [API] No children found for this parent');
+        if (reservationsSnapshot.empty) {
+          console.log('ℹ️ [API] No reservations found for this parent');
           return [];
         }
 
-        const childIds = childrenSnapshot.docs.map(doc => doc.id);
-        console.log('👶 [API] Found children:', childIds);
+        // STEP 2: Extract child names from reservations
+        const childNames: string[] = [];
+        const reservationData: any[] = [];
 
-        // Get activities for all children
+        reservationsSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.childName) {
+            childNames.push(data.childName);
+            reservationData.push({
+              id: doc.id,
+              childName: data.childName,
+              kindergartenId: data.kindergartenId,
+              status: data.status,
+              ...data,
+            });
+          }
+        });
+
+        console.log('✅ [API] Found reservations for children:', childNames);
+        console.log('📊 [API] Reservation details:', reservationData);
+
+        if (childNames.length === 0) {
+          console.log('ℹ️ [API] No child names found in reservations');
+          return [];
+        }
+
+        // STEP 3: Find child activities for these children
+        console.log(
+          '🔍 [API] Looking for activities for children:',
+          childNames,
+        );
+
         const activitiesSnapshot = await firestore()
           .collection('childActivities')
-          .where('childId', 'in', childIds)
+          .where('childName', 'in', childNames)
+          .where('deleted', '==', false)
           .orderBy('timestamp', 'desc')
-          .limit(50) // Limit to recent activities
+          .limit(100)
           .get();
 
-        if (!activitiesSnapshot.empty) {
+        if (activitiesSnapshot.empty) {
+          console.log('ℹ️ [API] No activities found for these children');
           console.log(
-            '✅ [API] Found',
-            activitiesSnapshot.size,
-            'child activities',
+            '🔧 [API] DEBUG: Looking for activities with childName in:',
+            childNames,
           );
 
-          return activitiesSnapshot.docs.map(doc => {
+          // DEBUG: Let's see what activities exist
+          const allActivitiesSnapshot = await firestore()
+            .collection('childActivities')
+            .where('deleted', '==', false)
+            .limit(10)
+            .get();
+
+          console.log('🔍 [API] All activities in database:');
+          allActivitiesSnapshot.docs.forEach(doc => {
             const data = doc.data();
-            return {
-              id: doc.id,
-              childId: data?.childId || '',
-              childName: data?.childName || '',
-              type: data?.type || '',
-              subtype: data?.subtype || '',
-              timestamp:
-                data?.timestamp?.toDate?.()?.toISOString() ||
-                new Date().toISOString(),
-              details: data?.details || '',
-              createdBy: data?.createdBy || '',
-              kindergartenId: data?.kindergartenId || '',
-              deleted: !!data?.deleted,
-            };
+            console.log(
+              `  - Activity ID: ${doc.id}, Child: ${data.childName}, Type: ${data.type}`,
+            );
           });
-        } else {
-          console.log('ℹ️ [API] No activities found for children');
+
           return [];
         }
+
+        // STEP 4: Convert and return activities
+        const activities = activitiesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            childId: data?.childId || '',
+            childName: data?.childName || '',
+            type: data?.type || '',
+            subtype: data?.subtype || '',
+            timestamp:
+              data?.timestamp?.toDate?.()?.toISOString() ||
+              new Date().toISOString(),
+            details: data?.details || '',
+            createdBy: data?.createdBy || '',
+            kindergartenId: data?.kindergartenId || '',
+            deleted: !!data?.deleted,
+          };
+        });
+
+        console.log('✅ [API] Found', activities.length, 'child activities');
+        console.log('📊 [API] Activities summary:');
+        activities.forEach(activity => {
+          console.log(
+            `  - ${activity.childName}: ${activity.type} - ${activity.subtype}`,
+          );
+        });
+
+        return activities;
       } catch (error) {
         console.error('❌ [API] Error fetching child activities:', error);
+        console.error('❌ [API] Full error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          userId: currentUser.uid,
+          userEmail: currentUser.email,
+        });
         throw error;
       }
     },
@@ -226,7 +286,7 @@ const apiService = {
       }
     },
 
-    // Get all children for the current parent
+    // Get all children for the current parent - USING RESERVATIONS
     getChildren: async (): Promise<
       Array<{id: string; name: string; kindergartenId: string}>
     > => {
@@ -239,24 +299,39 @@ const apiService = {
       try {
         console.log('👶 [API] Fetching children for parent:', currentUser.uid);
 
-        const childrenSnapshot = await firestore()
-          .collection('children')
+        // Use reservations collection to find children
+        const reservationsSnapshot = await firestore()
+          .collection('reservations')
           .where('userId', '==', currentUser.uid)
           .get();
 
-        if (!childrenSnapshot.empty) {
-          return childrenSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              name: data?.childName || data?.name || 'Unknown Child',
-              kindergartenId: data?.kindergartenId || '',
-            };
-          });
-        } else {
-          console.log('ℹ️ [API] No children found for this parent');
+        if (reservationsSnapshot.empty) {
+          console.log('ℹ️ [API] No reservations found for this parent');
           return [];
         }
+
+        const children: Array<{
+          id: string;
+          name: string;
+          kindergartenId: string;
+        }> = [];
+
+        reservationsSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.childName) {
+            children.push({
+              id: doc.id, // Use reservation ID as child ID for now
+              name: data.childName,
+              kindergartenId: data.kindergartenId || '',
+            });
+          }
+        });
+
+        console.log(
+          '✅ [API] Found children via reservations:',
+          children.length,
+        );
+        return children;
       } catch (error) {
         console.error('❌ [API] Error fetching children:', error);
         throw error;
@@ -320,6 +395,77 @@ const apiService = {
         );
         throw error;
       }
+    },
+  },
+
+  // Legacy ChildStatus endpoints for backward compatibility
+  childStatus: {
+    // Convert child activities to legacy child status format
+    getAll: async (): Promise<ChildStatus[]> => {
+      const activities = await apiService.childActivities.getAllForParent();
+
+      // Convert activities to legacy child status format
+      const statusMap = new Map<string, ChildStatus>();
+
+      activities.forEach(activity => {
+        const key = activity.childName;
+        if (!statusMap.has(key)) {
+          statusMap.set(key, {
+            id: activity.id,
+            childName: activity.childName,
+            createdAt: activity.timestamp,
+            updatedAt: activity.timestamp,
+            kindergartenId: activity.kindergartenId,
+          });
+        }
+
+        const status = statusMap.get(key)!;
+
+        // Map activity types to legacy status fields
+        if (activity.type === 'meal') {
+          status.meal = activity.subtype;
+        } else if (activity.type === 'nap') {
+          status.nap = true;
+        } else if (activity.details) {
+          status.notes = activity.details;
+        }
+      });
+
+      return Array.from(statusMap.values());
+    },
+
+    getAllForKindergarten: async (): Promise<ChildStatus[]> => {
+      const activities =
+        await apiService.childActivities.getAllForKindergarten();
+
+      // Convert activities to legacy child status format
+      const statusMap = new Map<string, ChildStatus>();
+
+      activities.forEach(activity => {
+        const key = activity.childName;
+        if (!statusMap.has(key)) {
+          statusMap.set(key, {
+            id: activity.id,
+            childName: activity.childName,
+            createdAt: activity.timestamp,
+            updatedAt: activity.timestamp,
+            kindergartenId: activity.kindergartenId,
+          });
+        }
+
+        const status = statusMap.get(key)!;
+
+        // Map activity types to legacy status fields
+        if (activity.type === 'meal') {
+          status.meal = activity.subtype;
+        } else if (activity.type === 'nap') {
+          status.nap = true;
+        } else if (activity.details) {
+          status.notes = activity.details;
+        }
+      });
+
+      return Array.from(statusMap.values());
     },
   },
 

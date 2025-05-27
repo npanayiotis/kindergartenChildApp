@@ -32,11 +32,41 @@ export interface ChildActivity {
   deleted: boolean;
 }
 
-// Child type
+// Child type - represents a child in the system
 export interface Child {
   id: string;
   name: string;
   kindergartenId: string;
+  userId?: string; // Parent's user ID
+  dateOfBirth?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Legacy ChildStatus interface for backward compatibility
+export interface ChildStatus {
+  id: string;
+  childName: string;
+  mood?: string;
+  meal?: string;
+  nap?: boolean;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  parentId?: string;
+  kindergartenId?: string;
+}
+
+// Reservation type - links parents to children and kindergartens
+export interface Reservation {
+  id: string;
+  userId: string; // Parent's user ID
+  childId: string;
+  kindergartenId: string;
+  status: 'active' | 'inactive' | 'pending';
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
 }
 
 // Blog Post type
@@ -71,6 +101,18 @@ export interface ApiResponse<T> {
   data: T;
   message?: string;
   status: number;
+}
+
+// Debug information type
+export interface DebugInfo {
+  userId: string;
+  userEmail: string;
+  userRole: string;
+  childrenFound: number;
+  activitiesFound: number;
+  timestamp: string;
+  errors: string[];
+  warnings: string[];
 }
 
 // Re-export Firebase types

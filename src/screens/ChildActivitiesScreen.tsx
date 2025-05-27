@@ -11,54 +11,81 @@ import {
 } from 'react-native';
 import {useAuth} from '../context/AuthContext';
 import apiService from '../api/apiService';
-
-// Import our centralized icon component
 import {Ionicon as Icon} from '../utils/IconProvider';
-
-import {ChildStatus} from '../types';
+import {ChildActivity, Child} from '../types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types';
 import {CommonActions} from '@react-navigation/native';
 
-type ChildStatusScreenProps = {
-  navigation: StackNavigationProp<RootStackParamList, 'ChildStatus'>;
+type ChildActivitiesScreenProps = {
+  navigation: StackNavigationProp<RootStackParamList, 'ChildActivities'>;
 };
 
-const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
-  const [childStatuses, setChildStatuses] = useState<ChildStatus[]>([]);
+const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
+  navigation,
+}) => {
+  const [childActivities, setChildActivities] = useState<ChildActivity[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const {user, isParent, isKindergarten, logout} = useAuth();
 
-  // Function to format date string
   const formatDate = (dateStr?: string): string => {
     if (!dateStr) return 'No date';
     const date = new Date(dateStr);
-    return (
-      date.toLocaleDateString() +
-      ' ' +
-      date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
-    );
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+
+    if (isToday) {
+      return (
+        'Today ' +
+        date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+      );
+    } else {
+      return (
+        date.toLocaleDateString() +
+        ' ' +
+        date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+      );
+    }
   };
 
-  // Handle logout - wrapped in useCallback
+  const getActivityIcon = (type: string, subtype: string): string => {
+    switch (type.toLowerCase()) {
+      case 'meal':
+        return subtype.toLowerCase().includes('breakfast')
+          ? '🍳'
+          : subtype.toLowerCase().includes('lunch')
+          ? '🍽️'
+          : subtype.toLowerCase().includes('snack')
+          ? '🍪'
+          : '🍽️';
+      case 'nap':
+        return '😴';
+      case 'activity':
+        return '🎨';
+      case 'play':
+        return '🎮';
+      case 'learning':
+        return '📚';
+      default:
+        return '📝';
+    }
+  };
+
   const handleLogout = useCallback(async (): Promise<void> => {
     try {
       await logout();
-      navigation.dispatch(
-        CommonActions.navigate({
-          name: 'Login',
-        }),
-      );
+      navigation.dispatch(CommonActions.navigate({name: 'Login'}));
     } catch (error) {
       console.error('Logout error:', error);
       Alert.alert('Error', 'Failed to log out. Please try again.');
     }
   }, [logout, navigation]);
 
-  // Load child statuses - wrapped in useCallback
-  const loadChildStatuses = useCallback(async (): Promise<void> => {
+  const loadChildActivities = useCallback(async (): Promise<void> => {
     if (!user) {
       setLoading(false);
       setRefreshing(false);
@@ -70,22 +97,82 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
       setLoading(true);
       setError(null);
 
-      let data: ChildStatus[] = [];
+      let activities: ChildActivity[] = [];
+      let debugMessages: string[] = [];
+
+      debugMessages.push(
+        `🔍 Loading activities for user: ${user.email} (${user.id})`,
+      );
+      debugMessages.push(`👤 User role: ${user.role}`);
 
       if (isParent) {
-        // Parents see their own children's statuses
-        data = await apiService.childStatus.getAll();
+        console.log('👨‍👩‍👧‍👦 [SCREEN] Loading activities for parent');
+        debugMessages.push('🔄 Fetching parent activities via reservations...');
+
+        activities = await apiService.childActivities.getAllForParent();
+        debugMessages.push(`📊 Found ${activities.length} activities`);
+
+        try {
+          const childrenList = await apiService.childActivities.getChildren();
+          setChildren(childrenList);
+          debugMessages.push(`👶 Found ${childrenList.length} children`);
+
+          childrenList.forEach((child, index) => {
+            debugMessages.push(
+              `  Child ${index + 1}: ${child.name} (Kindergarten: ${
+                child.kindergartenId
+              })`,
+            );
+          });
+        } catch (childrenError) {
+          console.warn('Could not load children list:', childrenError);
+          debugMessages.push('⚠️ Could not load children list');
+        }
       } else if (isKindergarten) {
-        // Kindergartens see all children in their care
-        data = await apiService.childStatus.getAllForKindergarten();
+        console.log('🏫 [SCREEN] Loading activities for kindergarten');
+        debugMessages.push('🔄 Fetching kindergarten activities...');
+
+        activities = await apiService.childActivities.getAllForKindergarten();
+        debugMessages.push(`📊 Found ${activities.length} activities`);
       }
 
-      setChildStatuses(data);
-    } catch (error) {
-      console.error('Error loading child statuses:', error);
-      setError('Failed to load child statuses. Please try again.');
+      console.log('✅ [SCREEN] Loaded', activities.length, 'activities');
+      setChildActivities(activities);
+      setDebugInfo(debugMessages.join('\n'));
 
-      // If authentication error, suggest logging out
+      if (activities.length === 0) {
+        if (isParent) {
+          setError(
+            'No child activities found.\n\n' +
+              'This might be because:\n' +
+              "• Your children don't have any activities recorded yet\n" +
+              "• The child name in reservations doesn't match the child name in activities\n" +
+              "• The kindergarten hasn't added any activities yet\n\n" +
+              'Please check the debug information for more details.',
+          );
+        } else {
+          setError('No activities found for your kindergarten.');
+        }
+      }
+    } catch (error) {
+      console.error('❌ [SCREEN] Error loading child activities:', error);
+
+      let errorMessage = 'Failed to load child activities.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('not authenticated')) {
+          errorMessage =
+            'Your session has expired. Please log out and sign in again.';
+        } else if (error.message.includes('permission')) {
+          errorMessage =
+            "You don't have permission to access this data. Please contact support.";
+        } else {
+          errorMessage = `Error: ${error.message}`;
+        }
+      }
+
+      setError(errorMessage);
+
       if (
         error instanceof Error &&
         error.message.includes('not authenticated')
@@ -94,14 +181,8 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
           'Authentication Error',
           'Your session has expired. Please log out and sign in again.',
           [
-            {
-              text: 'Log Out',
-              onPress: handleLogout,
-            },
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
+            {text: 'Log Out', onPress: handleLogout},
+            {text: 'Cancel', style: 'cancel'},
           ],
         );
       }
@@ -113,124 +194,152 @@ const ChildStatusScreen: React.FC<ChildStatusScreenProps> = ({navigation}) => {
 
   useEffect(() => {
     if (user) {
-      loadChildStatuses();
+      loadChildActivities();
     } else {
       setLoading(false);
-      setError('Please log in to view child statuses.');
+      setError('Please log in to view child activities.');
     }
-  }, [user, loadChildStatuses]);
+  }, [user, loadChildActivities]);
 
   const onRefresh = (): void => {
     setRefreshing(true);
-    loadChildStatuses();
+    loadChildActivities();
   };
 
-  const navigateToChildDetails = (childId: string): void => {
-    navigation.navigate('ChildStatusDetails', {childId});
+  const showDebugInfo = (): void => {
+    Alert.alert(
+      'Debug Information',
+      debugInfo || 'No debug information available',
+      [{text: 'OK'}],
+    );
   };
 
-  // Render item for child status list
-  const renderChildStatusItem = ({item}: {item: ChildStatus}) => {
+  const renderChildActivityItem = ({item}: {item: ChildActivity}) => {
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => navigateToChildDetails(item.id)}>
+        onPress={() => {
+          Alert.alert(
+            'Activity Details',
+            `Child: ${item.childName}\nType: ${item.type} - ${
+              item.subtype
+            }\nDetails: ${item.details}\nTime: ${formatDate(item.timestamp)}`,
+          );
+        }}>
         <View style={styles.cardHeader}>
-          <Text style={styles.childName}>{item.childName}</Text>
-          <Text style={styles.date}>{formatDate(item.updatedAt)}</Text>
-        </View>
-
-        <View style={styles.statusRow}>
-          <View style={styles.statusItem}>
-            <Icon name="happy-outline" size={24} color="#4a80f5" />
-            <Text style={styles.statusText}>{item.mood || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.statusItem}>
-            <Icon name="restaurant-outline" size={24} color="#4a80f5" />
-            <Text style={styles.statusText}>{item.meal || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.statusItem}>
-            <Icon name="bed-outline" size={24} color="#4a80f5" />
-            <Text style={styles.statusText}>
-              {item.nap ? 'Napped' : 'No nap'}
+          <View style={styles.activityHeader}>
+            <Text style={styles.activityIcon}>
+              {getActivityIcon(item.type, item.subtype)}
             </Text>
+            <View style={styles.activityInfo}>
+              <Text style={styles.childName}>{item.childName}</Text>
+              <Text style={styles.activityType}>
+                {item.type} - {item.subtype}
+              </Text>
+            </View>
           </View>
+          <Text style={styles.date}>{formatDate(item.timestamp)}</Text>
         </View>
 
-        {item.notes && (
-          <View style={styles.notesContainer}>
-            <Text style={styles.notesLabel}>Notes:</Text>
-            <Text style={styles.notes}>{item.notes}</Text>
+        {item.details ? (
+          <View style={styles.detailsContainer}>
+            <Text style={styles.details}>{item.details}</Text>
           </View>
-        )}
+        ) : null}
+
+        <View style={styles.metaContainer}>
+          <Text style={styles.metaText}>Created by kindergarten staff</Text>
+        </View>
       </TouchableOpacity>
     );
   };
 
+  const renderLoadingScreen = () => (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#4a80f5" />
+      <Text style={styles.loadingText}>Loading activities...</Text>
+    </View>
+  );
+
+  const renderErrorScreen = () => (
+    <View style={styles.errorContainer}>
+      <Icon name="alert-circle-outline" size={50} color="#f44336" />
+      <Text style={styles.errorText}>{error}</Text>
+      <TouchableOpacity
+        style={styles.retryButton}
+        onPress={loadChildActivities}>
+        <Text style={styles.retryButtonText}>Try Again</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.debugFullButton} onPress={showDebugInfo}>
+        <Text style={styles.debugFullButtonText}>Debug Info</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.logoutFullButton} onPress={handleLogout}>
+        <Text style={styles.logoutFullButtonText}>Log Out</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderEmptyScreen = () => (
+    <View style={styles.emptyContainer}>
+      <Icon name="information-circle-outline" size={50} color="#ccc" />
+      <Text style={styles.emptyText}>No activities found</Text>
+      <Text style={styles.emptySubText}>
+        {isParent
+          ? "Your child's activities will appear here when the kindergarten adds them."
+          : 'Child activities for your kindergarten will appear here.'}
+      </Text>
+      <TouchableOpacity style={styles.debugFullButton} onPress={showDebugInfo}>
+        <Text style={styles.debugFullButtonText}>Debug Info</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>
-          {isParent ? 'Your Child Status' : 'Children Status'}
-        </Text>
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={() => {
-            Alert.alert(
-              'Logout',
-              'Are you sure you want to log out?',
-              [
-                {
-                  text: 'Cancel',
-                  style: 'cancel',
-                },
-                {text: 'Logout', onPress: handleLogout},
-              ],
-              {cancelable: true},
-            );
-          }}>
-          <Icon name="log-out-outline" size={22} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>
+            {isParent ? 'Child Activities' : 'All Activities'}
+          </Text>
+          {children.length > 0 ? (
+            <Text style={styles.subtitle}>
+              {children.length} child{children.length > 1 ? 'ren' : ''} enrolled
+            </Text>
+          ) : null}
+        </View>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.debugButton} onPress={showDebugInfo}>
+            <Icon name="information-circle-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() => {
+              Alert.alert(
+                'Logout',
+                'Are you sure you want to log out?',
+                [
+                  {text: 'Cancel', style: 'cancel'},
+                  {text: 'Logout', onPress: handleLogout},
+                ],
+                {cancelable: true},
+              );
+            }}>
+            <Icon name="log-out-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4a80f5" />
-        </View>
+        renderLoadingScreen()
       ) : error ? (
-        <View style={styles.errorContainer}>
-          <Icon name="alert-circle-outline" size={50} color="#f44336" />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={loadChildStatuses}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.logoutFullButton}
-            onPress={handleLogout}>
-            <Text style={styles.logoutFullButtonText}>Log Out</Text>
-          </TouchableOpacity>
-        </View>
-      ) : childStatuses.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Icon name="information-circle-outline" size={50} color="#ccc" />
-          <Text style={styles.emptyText}>
-            No child status updates available
-          </Text>
-          <Text style={styles.emptySubText}>
-            {isParent
-              ? "Your child's status updates will appear here."
-              : 'Status updates for children in your kindergarten will appear here.'}
-          </Text>
-        </View>
+        renderErrorScreen()
+      ) : childActivities.length === 0 ? (
+        renderEmptyScreen()
       ) : (
         <FlatList
-          data={childStatuses}
+          data={childActivities}
           keyExtractor={item => item.id}
-          renderItem={renderChildStatusItem}
+          renderItem={renderChildActivityItem}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -256,16 +365,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  titleContainer: {
+    flex: 1,
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
     marginTop: 10,
   },
+  subtitle: {
+    fontSize: 14,
+    color: '#e0e0ff',
+    marginTop: 2,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  debugButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 10,
+    marginRight: 8,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
   errorContainer: {
     flex: 1,
@@ -279,6 +412,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 20,
+    lineHeight: 22,
   },
   retryButton: {
     backgroundColor: '#4a80f5',
@@ -288,6 +422,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  debugFullButton: {
+    backgroundColor: '#ff9800',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  debugFullButtonText: {
     color: 'white',
     fontWeight: 'bold',
   },
@@ -325,46 +470,56 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  activityIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  activityInfo: {
+    flex: 1,
   },
   childName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
   },
+  activityType: {
+    fontSize: 14,
+    color: '#4a80f5',
+    fontWeight: '500',
+    marginTop: 2,
+  },
   date: {
     fontSize: 12,
     color: '#888',
   },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  statusItem: {
-    alignItems: 'center',
-  },
-  statusText: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#555',
-  },
-  notesContainer: {
+  detailsContainer: {
     backgroundColor: '#f5f7fa',
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
+    marginBottom: 8,
   },
-  notesLabel: {
-    fontWeight: 'bold',
-    marginBottom: 4,
-    fontSize: 14,
-    color: '#555',
-  },
-  notes: {
+  details: {
     fontSize: 14,
     color: '#555',
     lineHeight: 20,
+  },
+  metaContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 8,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
   },
   emptyContainer: {
     flex: 1,
@@ -378,13 +533,16 @@ const styles = StyleSheet.create({
     color: '#555',
     marginTop: 15,
     marginBottom: 5,
+    textAlign: 'center',
   },
   emptySubText: {
     fontSize: 14,
     color: '#888',
     textAlign: 'center',
     maxWidth: '80%',
+    lineHeight: 20,
+    marginBottom: 20,
   },
 });
 
-export default ChildStatusScreen;
+export default ChildActivitiesScreen;

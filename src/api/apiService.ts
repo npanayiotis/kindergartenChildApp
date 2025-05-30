@@ -521,12 +521,5 @@ class RestApiService {
 const apiService = new RestApiService();
 export default apiService;
 
-// Export configuration for easy updates
-export const API_CONFIG_EXPORT = {
-  BASE_URL,
-  ENDPOINTS,
-  POLLING_INTERVALS: POLLING,
-};
-
 // Export types for convenience
 export type {Child, ChildActivity, User, BlogPost};

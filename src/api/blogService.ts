@@ -1,20 +1,27 @@
-// src/api/blogService.ts - Fixed Firestore Pagination
+// src/api/blogService.ts - Fixed TypeScript errors
 import firestore from '@react-native-firebase/firestore';
 import {BlogPost} from '../types';
 
 console.log('📰 Blog Service initializing with Firebase Firestore...');
 
 class BlogService {
-  private readonly collection = firestore().collection('blog');
+  private readonly collection = firestore().collection('kindergartenPosts');
 
   // Get all blog posts with pagination
   async getAll(
     page: number = 1,
     pageSize: number = 10,
     kindergartenId: string | null = null,
-  ) {
+  ): Promise<{
+    posts: BlogPost[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     try {
-      console.log('📰 [BLOG] Fetching blog posts from Firestore');
+      console.log(
+        '📰 [BLOG] Fetching blog posts from kindergartenPosts collection',
+      );
       console.log(
         '📰 [BLOG] Page:',
         page,
@@ -34,7 +41,7 @@ class BlogService {
       const snapshot = await query.get();
 
       if (snapshot.empty) {
-        console.log('📰 [BLOG] No blog posts found');
+        console.log('📰 [BLOG] No blog posts found in kindergartenPosts');
         return {
           posts: [],
           total: 0,
@@ -72,7 +79,7 @@ class BlogService {
         posts.length,
         'blog posts out of',
         total,
-        'total',
+        'total from kindergartenPosts',
       );
 
       return {
@@ -82,7 +89,10 @@ class BlogService {
         pageSize,
       };
     } catch (error) {
-      console.error('❌ [BLOG] Error fetching blog posts:', error);
+      console.error(
+        '❌ [BLOG] Error fetching blog posts from kindergartenPosts:',
+        error,
+      );
       throw error;
     }
   }
@@ -90,12 +100,15 @@ class BlogService {
   // Get a single blog post by ID
   async getById(id: string): Promise<BlogPost> {
     try {
-      console.log('📰 [BLOG] Fetching blog post by ID:', id);
+      console.log(
+        '📰 [BLOG] Fetching blog post by ID from kindergartenPosts:',
+        id,
+      );
 
       const doc = await this.collection.doc(id).get();
 
       if (!doc.exists) {
-        throw new Error('Blog post not found');
+        throw new Error('Blog post not found in kindergartenPosts');
       }
 
       const data = doc.data()!;
@@ -116,10 +129,16 @@ class BlogService {
         image: data.image || data.imageUrl,
       };
 
-      console.log('✅ [BLOG] Found blog post:', post.title);
+      console.log(
+        '✅ [BLOG] Found blog post from kindergartenPosts:',
+        post.title,
+      );
       return post;
     } catch (error) {
-      console.error('❌ [BLOG] Error fetching blog post:', error);
+      console.error(
+        '❌ [BLOG] Error fetching blog post from kindergartenPosts:',
+        error,
+      );
       throw error;
     }
   }
@@ -128,8 +147,10 @@ class BlogService {
   subscribeToBlogs(
     onBlogUpdate: (posts: BlogPost[]) => void,
     kindergartenId?: string,
-  ) {
-    console.log('🔗 [BLOG] Setting up real-time blog listener');
+  ): () => void {
+    console.log(
+      '🔗 [BLOG] Setting up real-time blog listener on kindergartenPosts',
+    );
 
     let query = this.collection.orderBy('createdAt', 'desc').limit(20);
 
@@ -140,7 +161,9 @@ class BlogService {
     const unsubscribe = query.onSnapshot(
       snapshot => {
         if (snapshot.empty) {
-          console.log('📰 [BLOG] No blog posts in real-time update');
+          console.log(
+            '📰 [BLOG] No blog posts in real-time update from kindergartenPosts',
+          );
           onBlogUpdate([]);
           return;
         }
@@ -166,14 +189,17 @@ class BlogService {
         });
 
         console.log(
-          '🔄 [BLOG] Real-time update: found',
+          '🔄 [BLOG] Real-time update from kindergartenPosts: found',
           posts.length,
           'blog posts',
         );
         onBlogUpdate(posts);
       },
       error => {
-        console.error('❌ [BLOG] Real-time listener error:', error);
+        console.error(
+          '❌ [BLOG] Real-time listener error on kindergartenPosts:',
+          error,
+        );
       },
     );
 
@@ -183,15 +209,22 @@ class BlogService {
   // Test connection to Firestore
   async testConnection(): Promise<boolean> {
     try {
-      console.log('🔧 [BLOG] Testing Firestore connection...');
+      console.log(
+        '🔧 [BLOG] Testing Firestore connection to kindergartenPosts...',
+      );
 
-      // Try to read from the blog collection
+      // Try to read from the kindergartenPosts collection
       await this.collection.limit(1).get();
 
-      console.log('✅ [BLOG] Firestore connection successful');
+      console.log(
+        '✅ [BLOG] Firestore connection to kindergartenPosts successful',
+      );
       return true;
     } catch (error) {
-      console.error('❌ [BLOG] Firestore connection failed:', error);
+      console.error(
+        '❌ [BLOG] Firestore connection to kindergartenPosts failed:',
+        error,
+      );
       return false;
     }
   }
@@ -199,7 +232,9 @@ class BlogService {
   // Create mock blog posts for testing (use only for development)
   async createMockPosts(): Promise<void> {
     try {
-      console.log('🔧 [BLOG] Creating mock blog posts for testing...');
+      console.log(
+        '🔧 [BLOG] Creating mock blog posts in kindergartenPosts for testing...',
+      );
 
       const mockPosts = [
         {
@@ -237,14 +272,19 @@ class BlogService {
         },
       ];
 
-      // Add mock posts to Firestore
+      // Add mock posts to kindergartenPosts collection
       for (const post of mockPosts) {
         await this.collection.add(post);
       }
 
-      console.log('✅ [BLOG] Mock blog posts created successfully');
+      console.log(
+        '✅ [BLOG] Mock blog posts created successfully in kindergartenPosts',
+      );
     } catch (error) {
-      console.error('❌ [BLOG] Error creating mock posts:', error);
+      console.error(
+        '❌ [BLOG] Error creating mock posts in kindergartenPosts:',
+        error,
+      );
       throw error;
     }
   }

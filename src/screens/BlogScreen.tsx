@@ -1,3 +1,4 @@
+// src/screens/BlogScreen.tsx - Updated with Better Error Handling and Mock Data
 import React, {useState, useEffect} from 'react';
 import {
   View,
@@ -25,8 +26,10 @@ const BlogScreen: React.FC<BlogScreenProps> = ({navigation}) => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [connectionTested, setConnectionTested] = useState<boolean>(false);
   const {user} = useAuth();
-  
+
   // Function to format date string nicely
   const formatDate = (dateStr?: string): string => {
     if (!dateStr) return 'Unknown date';
@@ -38,45 +41,133 @@ const BlogScreen: React.FC<BlogScreenProps> = ({navigation}) => {
     });
   };
 
+  // Test connection and create mock data if needed
+  const initializeData = async (): Promise<void> => {
+    try {
+      console.log(
+        '🔧 [BLOG SCREEN] Testing connection and initializing data...',
+      );
+
+      // Test API connection
+      const connectionOk = await apiService.testConnection();
+      setConnectionTested(true);
+
+      if (!connectionOk) {
+        setError(
+          'Failed to connect to Firebase. Please check your internet connection.',
+        );
+        return;
+      }
+
+      // Try to load existing blog posts
+      const response = await apiService.blog.getAll(1, 10);
+
+      if (response.posts.length === 0) {
+        // No blog posts found, create mock data for development
+        Alert.alert(
+          'No Blog Posts Found',
+          'Would you like to create some sample blog posts for testing?',
+          [
+            {
+              text: 'No',
+              style: 'cancel',
+            },
+            {
+              text: 'Yes',
+              onPress: async () => {
+                try {
+                  await apiService.createMockData();
+                  Alert.alert(
+                    'Success',
+                    'Sample blog posts created! Pull to refresh.',
+                  );
+                } catch (error) {
+                  console.error('Error creating mock data:', error);
+                  Alert.alert('Error', 'Failed to create sample posts.');
+                }
+              },
+            },
+          ],
+        );
+      }
+    } catch (error) {
+      console.error('❌ [BLOG SCREEN] Initialization error:', error);
+      setError('Failed to initialize. Please try again.');
+    }
+  };
+
   // Load blog posts
-  const loadBlogPosts = async (pageNumber = 1, refresh = false): Promise<void> => {
+  const loadBlogPosts = async (
+    pageNumber = 1,
+    refresh = false,
+  ): Promise<void> => {
     try {
       if (refresh) {
         setLoading(true);
+        setError(null);
       }
-      
-      const response = await apiService.blog.getAll(pageNumber);
+
+      console.log('📰 [BLOG SCREEN] Loading blog posts, page:', pageNumber);
+
+      const response = await apiService.blog.getAll(pageNumber, 10);
       const {posts, total} = response;
-      
+
       if (refresh || pageNumber === 1) {
         setBlogPosts(posts);
       } else {
         setBlogPosts(prevPosts => [...prevPosts, ...posts]);
       }
-      
+
       // Check if we have more posts to load
       setHasMore(blogPosts.length + posts.length < total);
       setPage(pageNumber);
+
+      console.log('✅ [BLOG SCREEN] Loaded', posts.length, 'posts');
     } catch (error) {
-      Alert.alert('Error', 'Failed to load blog posts');
-      console.error(error);
+      console.error('❌ [BLOG SCREEN] Error loading blog posts:', error);
+
+      let errorMessage = 'Failed to load blog posts';
+      if (error instanceof Error) {
+        if (error.message.includes('permission')) {
+          errorMessage = 'Permission denied. Please check your account access.';
+        } else if (error.message.includes('network')) {
+          errorMessage =
+            'Network error. Please check your internet connection.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      setError(errorMessage);
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // Initialize data on first load
   useEffect(() => {
-    loadBlogPosts();
-  }, []);
+    if (!connectionTested) {
+      initializeData();
+    }
+  }, [connectionTested]);
+
+  // Load blog posts after initialization
+  useEffect(() => {
+    if (connectionTested && !error) {
+      loadBlogPosts();
+    }
+  }, [connectionTested, error]);
 
   const onRefresh = (): void => {
     setRefreshing(true);
+    setError(null);
     loadBlogPosts(1, true);
   };
 
   const loadMorePosts = (): void => {
-    if (hasMore && !loading) {
+    if (hasMore && !loading && !error) {
       loadBlogPosts(page + 1);
     }
   };
@@ -127,19 +218,79 @@ const BlogScreen: React.FC<BlogScreenProps> = ({navigation}) => {
     );
   };
 
+  // Render error state
+  const renderErrorState = () => (
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorText}>{error}</Text>
+      <TouchableOpacity
+        style={styles.retryButton}
+        onPress={() => {
+          setError(null);
+          setConnectionTested(false);
+        }}>
+        <Text style={styles.retryButtonText}>Try Again</Text>
+      </TouchableOpacity>
+
+      {/* Development helper button */}
+      <TouchableOpacity
+        style={styles.mockDataButton}
+        onPress={async () => {
+          try {
+            setLoading(true);
+            await apiService.createMockData();
+            Alert.alert('Success', 'Sample blog posts created!');
+            onRefresh();
+          } catch (error) {
+            Alert.alert('Error', 'Failed to create sample posts.');
+          } finally {
+            setLoading(false);
+          }
+        }}>
+        <Text style={styles.mockDataButtonText}>Create Sample Posts</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Blog Posts</Text>
+        {!connectionTested && (
+          <Text style={styles.subtitle}>Connecting to Firebase...</Text>
+        )}
       </View>
 
-      {loading && !refreshing && blogPosts.length === 0 ? (
+      {error ? (
+        renderErrorState()
+      ) : loading && !refreshing && blogPosts.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4a80f5" />
+          <Text style={styles.loadingText}>Loading blog posts...</Text>
         </View>
       ) : blogPosts.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No blog posts available</Text>
+          <Text style={styles.emptySubText}>
+            Pull down to refresh or create some sample posts to get started.
+          </Text>
+          <TouchableOpacity
+            style={styles.createSampleButton}
+            onPress={async () => {
+              try {
+                setLoading(true);
+                await apiService.createMockData();
+                Alert.alert('Success', 'Sample blog posts created!');
+                onRefresh();
+              } catch (error) {
+                Alert.alert('Error', 'Failed to create sample posts.');
+              } finally {
+                setLoading(false);
+              }
+            }}>
+            <Text style={styles.createSampleButtonText}>
+              Create Sample Posts
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -177,10 +328,53 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 10,
   },
+  subtitle: {
+    fontSize: 12,
+    color: '#e0e0ff',
+    marginTop: 2,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#e74c3c',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#4a80f5',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  mockDataButton: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  mockDataButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   list: {
     padding: 16,
@@ -254,10 +448,30 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#555',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubText: {
+    fontSize: 14,
     color: '#888',
     textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  createSampleButton: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  createSampleButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 
-export default BlogScreen; 
+export default BlogScreen;

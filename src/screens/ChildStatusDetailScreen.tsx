@@ -114,9 +114,12 @@ const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
         console.log('👨‍👩‍👧‍👦 [SCREEN] Loading activities for parent');
         activities = await apiService.childActivities.getAllForParent();
 
-        // Also load children list
-        const childrenList = await apiService.childActivities.getChildren();
+        // ✅ FIX: Use the new children API instead of deprecated getChildren()
+        console.log('👶 [SCREEN] Loading children list for parent');
+        const childrenList = await apiService.children.getAllForParent();
         setChildren(childrenList);
+
+        console.log('✅ [SCREEN] Loaded children:', childrenList.length);
       } else if (isKindergarten) {
         // Kindergartens see all children in their care
         console.log('🏫 [SCREEN] Loading activities for kindergarten');
@@ -125,14 +128,39 @@ const ChildActivitiesScreen: React.FC<ChildActivitiesScreenProps> = ({
 
       console.log('✅ [SCREEN] Loaded', activities.length, 'activities');
       setChildActivities(activities);
-    } catch (error) {
-      console.error('❌ [SCREEN] Error loading child activities:', error);
-      setError('Failed to load child activities. Please try again.');
+    } catch (loadError) {
+      // ✅ Changed from 'error' to 'loadError'
+      console.error('❌ [SCREEN] Error loading child activities:', loadError);
+
+      // Enhanced error handling
+      let errorMessage = 'Failed to load child activities. Please try again.';
+
+      if (loadError instanceof Error) {
+        // ✅ Using 'loadError' consistently
+        if (loadError.message.includes('not authenticated')) {
+          errorMessage =
+            'Authentication failed. Please log out and sign in again.';
+        } else if (
+          loadError.message.includes('fetch') ||
+          loadError.message.includes('Network')
+        ) {
+          errorMessage =
+            'Network error. Please check your internet connection and try again.';
+        } else if (loadError.message.includes('404')) {
+          errorMessage = 'Service not available. Please contact support.';
+        } else if (loadError.message.includes('permission')) {
+          errorMessage = 'Permission denied. Please check your account access.';
+        } else {
+          errorMessage = loadError.message;
+        }
+      }
+
+      setError(errorMessage);
 
       // If authentication error, suggest logging out
       if (
-        error instanceof Error &&
-        error.message.includes('not authenticated')
+        loadError instanceof Error && // ✅ Using 'loadError' consistently
+        loadError.message.includes('not authenticated')
       ) {
         Alert.alert(
           'Authentication Error',

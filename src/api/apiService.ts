@@ -1,4 +1,4 @@
-// src/api/apiService.ts - Updated with Firebase Firestore Blog Integration
+// src/api/apiService.ts - Complete cleaned up version without unused token logic
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {ChildActivity, BlogPost, User, Child} from '../types';
 import auth from '@react-native-firebase/auth';
@@ -6,23 +6,6 @@ import firestore from '@react-native-firebase/firestore';
 import blogService from './blogService';
 
 console.log('🌐 API Service initializing with Firebase Firestore...');
-
-// Helper function to get Firebase ID token
-const getAuthToken = async (): Promise<string> => {
-  const currentUser = auth().currentUser;
-  if (!currentUser) {
-    throw new Error('User not authenticated');
-  }
-
-  try {
-    const token = await currentUser.getIdToken(false);
-    console.log('🔑 [API] Retrieved Firebase ID token');
-    return token;
-  } catch (error) {
-    console.error('❌ [API] Failed to get ID token:', error);
-    throw new Error('Failed to retrieve authentication token');
-  }
-};
 
 // Helper function to convert Firebase user to our User type
 const convertFirebaseUser = async (fbUser: any): Promise<User> => {
@@ -59,6 +42,7 @@ class ApiService {
         const user = await convertFirebaseUser(userCredential.user);
         await AsyncStorage.setItem('user_data', JSON.stringify(user));
 
+        // Get Firebase ID token for potential future use
         const token = await userCredential.user.getIdToken();
         await AsyncStorage.setItem('auth_token', token);
 
@@ -404,6 +388,19 @@ class ApiService {
     },
   };
 
+  // Legacy childStatus endpoints (backward compatibility)
+  childStatus = {
+    getAll: async (): Promise<any[]> => {
+      const activities = await this.childActivities.getAllForParent();
+      return activities;
+    },
+
+    getAllForKindergarten: async (): Promise<any[]> => {
+      const activities = await this.childActivities.getAllForKindergarten();
+      return activities;
+    },
+  };
+
   // Blog posts using the dedicated blog service
   blog = {
     getAll: async (
@@ -436,19 +433,6 @@ class ApiService {
       kindergartenId?: string,
     ) => {
       return blogService.subscribeToBlogs(onUpdate, kindergartenId);
-    },
-  };
-
-  // Legacy childStatus endpoints (backward compatibility)
-  childStatus = {
-    getAll: async (): Promise<any[]> => {
-      const activities = await this.childActivities.getAllForParent();
-      return activities;
-    },
-
-    getAllForKindergarten: async (): Promise<any[]> => {
-      const activities = await this.childActivities.getAllForKindergarten();
-      return activities;
     },
   };
 

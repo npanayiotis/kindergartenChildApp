@@ -86,16 +86,23 @@ export interface Reservation {
   updatedAt?: string;
 }
 
-// Blog Post type (unchanged)
+// Blog Post type with merged properties from both versions
 export interface BlogPost {
   id: string;
   title: string;
   content: string;
   createdAt: string;
-  updatedAt: string;
-  kindergartenId: string;
-  kindergartenName: string;
+  updatedAt?: string;
+  kindergartenId?: string;
+  kindergartenName?: string;
   image?: string;
+  imageUrl?: string;
+  excerpt?: string;
+  author?: string;
+  authorId?: string;
+  publishDate?: string;
+  tags?: string[];
+  published?: boolean;
 }
 
 // ENHANCED: Navigation Types with child-specific screens
